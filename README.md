@@ -11,3 +11,10 @@ ATO can be calculated for the road and transit networks by estimating travel tim
 
 ## Requirements
 The tool is implemented through Esri ArcGIS Pro using Python and Jupyter Notebooks. The tool primarily relyies on the Network Analyst extension and arcpy.
+
+
+## Conda Run
+Navigate to `C:\Program Files\ArcGIS\Pro\bin\Python\Scripts`
+Run `propy.bat` then `exit()`
+Then run `activate`
+then cd to c:\wfrc\ato and run `jupyter notebook`
