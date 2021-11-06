@@ -14,7 +14,7 @@ The tool is implemented through Esri ArcGIS Pro using Python and Jupyter Noteboo
 
 
 ## Conda Run
-
+Run "cmd"
 Run `"C:\Program Files\ArcGIS\Pro\bin\Python\Scripts\propy.bat"` then `exit()`
 Then run `activate`
 then cd to c:\wfrc\ato and run `jupyter notebook`
