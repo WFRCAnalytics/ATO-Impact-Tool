@@ -7,6 +7,16 @@ import math
 
 arcpy.CheckOutExtension("network")
 
+base_path = os.path.abspath(".")
+
+# location of the file geodatabase with the WFRC TAZ shapes and TAZ centroids    
+ato_gdb = os.path.join(base_path, r"shp\taz_wfrc.gdb")
+arcpy.env.workspace = os.path.join(base_path, "ato.gdb")
+
+# location of TAZ centroids with HH and JOB attributes
+centroids = os.path.join(ato_gdb, "taz_centroids_snapped")
+centroids_test = os.path.join(ato_gdb, "taz_centroids_sample")
+
 def survey_weight(t):
     if t <= 3:
         return 1
@@ -17,28 +27,24 @@ def survey_weight(t):
     else:
         return 0
 
-def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores", mode = "Driving", test = False):
+def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores", 
+          mode = "Driving", test = False):
     """Given a network dataset, solve and score TAZ ATO
     
     Keyword arguments:
-    nd_gdb -- the path to the network dataset used for analysis
+    nd_gdb -- the path to the filegeodatabase containing the network dataset used for analysis
+    nd -- the path of the network dataset within nd_gdb. Default: "NetworkDataset\\NetworkDataset_ND"
+    out_table -- name of the output table with ATO scores (written to nd_gdb)
+    mode -- evaluation mode ("Driving" | "Transit")
+    test -- set to True to run on the sample TAZs only to improve processing time
 
-
-    This function uses Network Analyst (arcpy.nax) to solve routes between
-    all supplied TAZ centroids.
+    This function uses Network Analyst (arcpy.nax) to solve routes between all TAZs.
+    all supplied TAZ centroids. A typical run takes about ten minutes for the full 
+    2800 TAZ dataset or about 1 minute for the sample TAZ dataset.
     """
 
-    base_path = os.path.abspath(".")
-
-    arcpy.env.workspace = os.path.join(base_path, "ato.gdb")
-
-    # location of the file geodatabase with the WFRC TAZ shapes and TAZ centroids    
-    ato_gdb = os.path.join(base_path, r"shp\taz_wfrc.gdb")
-
-    if test:
-        centroids = os.path.join(ato_gdb, "taz_centroids_sample")
-    else:
-        centroids = os.path.join(ato_gdb, "taz_centroids_snapped")
+    # if testing, use a subset of centroids
+    centroids = centroids_test if test else centroids
 
     nd_layer_name = "wfrc_mm"
 
@@ -88,16 +94,19 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
         print("Travel Times: ", od['Total_Time'].head())
         raise ValueError('Network Travel Times are Zero - Invalid Network')
 
-    taz = pd.DataFrame.spatial.from_featureclass(os.path.join(ato_gdb, "ATO"))
-
-    taz = taz[['CO_TAZID', 'HH_19', 'JOB_19']] #, 'JOBAUTO_19', 'HHAUTO_19', 'JOBTRANSIT_19', 'HHTRANSIT_19']]
-
-    # rename TAZ fields to make this easier to accomodate updates in future years
-    taz.rename(columns={'HH_19': 'HH', 'JOB_19': 'JOB'}, inplace=True)
-
+    # Join the TAZ data
     od['DestinationName'] = od['DestinationName'].astype(int)
 
-    df = pd.merge(od, taz, left_on="DestinationName", right_on="CO_TAZID", )
+    # this will fail if the TAZ layer hasn't been prepared appropriately
+    # refer to 1_network_setup.ipynb
+    taz = pd.DataFrame.spatial.from_featureclass(centroids)
+
+    taz.drop(columns=taz.columns.difference(['CO_TAZID', 'HH', 'JOB']), inplace=True)
+    
+    region_job_per_hh = taz['JOB'].sum() / taz['HH'].sum()
+    print("Regional Jobs per HH Ratio: {}".format(region_job_per_hh))
+
+    df = pd.merge(od, taz, left_on="DestinationName", right_on="CO_TAZID")
 
     df.rename(columns={"OriginName": "Origin_TAZID",
                        "DestinationName": "Destination_TAZID"},
@@ -106,41 +115,33 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
     # Weight outputs
     df['survey_weight'] = df['Total_Time'].apply(lambda x: survey_weight(x)).round(3)
 
-    df['weighted_jobs'] = round(df['survey_weight'] * df['JOB'])
-    df['weighted_hh'] = round(df['survey_weight'] * df['HH'])
+    df['accessible_jobs'] = round(df['survey_weight'] * df['JOB'])
+    df['accessible_hh'] = round(df['survey_weight'] * df['HH'])
 
-    region_job_per_hh = df['JOB'].sum() / df['HH'].sum()
+    # keep only relevant columns
+    keep_cols = ['Origin_TAZID', 'Destination_TAZID', 'Total_Time', 'accessible_jobs', 'accessible_hh']
+    df.drop(columns=df.columns.difference(keep_cols), inplace=True)
 
-    #df['ato'] = df['weighted_jobs'] + df['weighted_hh']
-
-    # Apply WFRC TAZ-based ATO formula
-    df['ato'] = round((df['weighted_hh'] * df['JOB'] + df['weighted_jobs'] * df['HH'] * region_job_per_hh) / 
-                      (df['HH'] * region_job_per_hh + df['JOB']))
-
-    df.head()
-    # write to disk
-    df = df[['Origin_TAZID', 'Destination_TAZID', 'Total_Time',
-             'weighted_jobs', 'weighted_hh', 'ato']] # .to_csv(r'tmp\scores.csv')
-    
+    # save table to input GDB
     df.spatial.to_table(os.path.join(nd_gdb, out_table))
 
-    # save table to input GDB
-    #arcpy.conversion.TableToTable(r'tmp\scores.csv', nd_gdb, out_name)
-
-    taz_summary = df.groupby('Origin_TAZID').agg(
-        jobs=pd.NamedAgg(column='weighted_jobs', aggfunc=sum),
-        hh=pd.NamedAgg(column='weighted_hh', aggfunc=sum),
-        ato=pd.NamedAgg(column='ato', aggfunc=sum)
+    df_summary = df.groupby('Origin_TAZID').agg(
+        accessible_jobs=pd.NamedAgg(column='accessible_jobs', aggfunc=sum),
+        accessible_hh=pd.NamedAgg(column='accessible_hh', aggfunc=sum)
     )
+    df_summary['CO_TAZID'] = df_summary.index.astype(int)
+    taz_ato = pd.merge(df_summary, taz, on="CO_TAZID")
+
+    # Apply WFRC TAZ-based ATO formula
+    taz_ato['ato'] = round((taz_ato['accessible_hh'] * taz_ato['JOB'] + taz_ato['accessible_jobs'] * taz_ato['HH'] * region_job_per_hh) / 
+                      (taz_ato['HH'] * region_job_per_hh + taz_ato['JOB']))
 
     #taz_summary.to_csv(r'tmp\scores_summary.csv')
-    taz_summary.spatial.to_table(os.path.join(nd_gdb, out_table + "_summary"))
+    taz_ato.spatial.to_table(os.path.join(nd_gdb, out_table + "_summary"))
 
     # save table to input GDB
-    #arcpy.conversion.TableToTable(r'tmp\scores_summary.csv', nd_gdb, "scores_summary")
-
     print("Scores written to {}".format(os.path.join(nd_gdb, out_table + "_summary")))
 
-    print("Network ATO: {}".format(taz_summary['ato'].sum()))
+    print("Network ATO: {}".format(taz_ato['ato'].sum()))
     
     return
