@@ -4,18 +4,7 @@ import errno
 from arcgis.features import SpatialDataFrame
 import pandas as pd
 import math
-
-arcpy.CheckOutExtension("network")
-
-base_path = os.path.abspath(".")
-
-# location of the file geodatabase with the WFRC TAZ shapes and TAZ centroids    
-ato_gdb = os.path.join(base_path, r"shp\taz_wfrc.gdb")
-arcpy.env.workspace = os.path.join(base_path, "ato.gdb")
-
-# location of TAZ centroids with HH and JOB attributes
-centroids = os.path.join(ato_gdb, "taz_centroids_snapped")
-centroids_test = os.path.join(ato_gdb, "taz_centroids_sample")
+import time
 
 def survey_weight(t):
     if t <= 3:
@@ -42,6 +31,19 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
     all supplied TAZ centroids. A typical run takes about ten minutes for the full 
     2800 TAZ dataset or about 1 minute for the sample TAZ dataset.
     """
+    start = time.time_ns()
+
+    arcpy.CheckOutExtension("network")
+
+    base_path = os.path.abspath(".")
+
+    # location of the file geodatabase with the WFRC TAZ shapes and TAZ centroids    
+    ato_gdb = os.path.join(base_path, r"shp\taz_wfrc.gdb")
+    arcpy.env.workspace = os.path.join(base_path, "ato.gdb")
+
+    # location of TAZ centroids with HH and JOB attributes
+    centroids = os.path.join(ato_gdb, "taz_centroids_snapped")
+    centroids_test = os.path.join(ato_gdb, "taz_centroids_sample")
 
     # if testing, use a subset of centroids
     centroids = centroids_test if test else centroids
@@ -49,6 +51,9 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
     nd_layer_name = "wfrc_mm"
 
     nd_path = os.path.join(nd_gdb, nd)
+
+    print("Solving skim using network {}".format(nd_path))
+    arcpy.AddMessage("Creating network from {}".format(nd_path))
 
     if arcpy.Exists(nd_path):
         arcpy.nax.MakeNetworkDatasetLayer(nd_path, nd_layer_name)
@@ -144,4 +149,7 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
 
     print("Network ATO: {}".format(taz_ato['ato'].sum()))
     
+    end = time.time_ns()
+    arcpy.AddMessage("Skim Matrix Solve Time: {}".format(end-start))
+
     return
