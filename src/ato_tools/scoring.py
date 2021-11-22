@@ -52,7 +52,7 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
 
     nd_path = os.path.join(nd_gdb, nd)
 
-    print("Solving skim using network {}".format(nd_path))
+    print("Solving skim using network {0} for {1}".format(nd_path, mode))
     arcpy.AddMessage("Creating network from {}".format(nd_path))
 
     if arcpy.Exists(nd_path):
@@ -150,6 +150,7 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
     print("Network ATO: {}".format(taz_ato['ato'].sum()))
     
     end = time.time_ns()
+    print("Skim Matrix Solve Time: {}".format(end-start))
     arcpy.AddMessage("Skim Matrix Solve Time: {}".format(end-start))
 
     return
