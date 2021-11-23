@@ -15,6 +15,11 @@ The tool is implemented through Esri ArcGIS Pro using Python and Jupyter Noteboo
 ## Scoring Projects
 ![Process Flow](doc/process_flow.png)
 
+1) Run [1_network_setup.ipynb] once. This sets everything up, including baseline scores and the template network dataset that will be modified for the scenarios. 
+2) For each project, step through the appropriate 3_*.ipynb notebook corresponding to the appropriate mode. I find this take 5 – 15 minutes per project, depending on the complexity of the project.
+3) Then, run [4_score.ipynb]. This notebook walks through all of the modified scenario networks in the scenario folder and scores each, writing the output results to tables within the file geodatabase. The “scores_summary” table contains the TAZ-level results. If a file geodatabase already contains a “scores” table it is skipped. Then, the script summarizes the ATO improvement scores for all scored scenarios. The whole process takes about 12 minutes per “auto” project and 4 minutes per “transit” project. 
+
+In theory, an analyst or planner could quickly create scenario networks for a bunch of projects, and then let the scoring notebook run overnight.
 
 ## Conda Run
 Run "cmd"
