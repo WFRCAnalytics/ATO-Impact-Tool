@@ -16,14 +16,15 @@ def survey_weight(t):
     else:
         return 0
 
-def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores", 
-          mode = "Driving", test = False):
+def score(gdb, mode, centroids = r"shp\taz_wfrc.gdb\taz_centroids_snapped",
+          nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores", 
+          test = False):
     """Given a network dataset, solve and score TAZ ATO
     
     Keyword arguments:
-    nd_gdb -- the path to the filegeodatabase containing the network dataset used for analysis
-    nd -- the path of the network dataset within nd_gdb. Default: "NetworkDataset\\NetworkDataset_ND"
-    out_table -- name of the output table with ATO scores (written to nd_gdb)
+    gdb -- the path to the filegeodatabase containing the network dataset used for analysis
+    nd -- the path of the network dataset within gdb. Default: "NetworkDataset\\NetworkDataset_ND"
+    out_table -- name of the output table with ATO scores (written to gdb)
     mode -- evaluation mode ("Driving" | "Transit")
     test -- set to True to run on the sample TAZs only to improve processing time
 
@@ -31,28 +32,24 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
     all supplied TAZ centroids. A typical run takes about ten minutes for the full 
     2800 TAZ dataset or about 1 minute for the sample TAZ dataset.
     """
-    start = time.time_ns()
+    start = time.time()
 
     arcpy.CheckOutExtension("network")
 
     base_path = os.path.abspath(".")
 
     # location of the file geodatabase with the WFRC TAZ shapes and TAZ centroids    
-    ato_gdb = os.path.join(base_path, r"shp\taz_wfrc.gdb")
-    arcpy.env.workspace = os.path.join(base_path, "ato.gdb")
-
-    # location of TAZ centroids with HH and JOB attributes
-    centroids = os.path.join(ato_gdb, "taz_centroids_snapped")
-    centroids_test = os.path.join(ato_gdb, "taz_centroids_sample")
+    arcpy.env.workspace = "ato.gdb"
 
     # if testing, use a subset of centroids
-    centroids = centroids_test if test else centroids
+    if test:
+        centroids = r"shp\taz_wfrc.gdb\taz_centroids_sample"
 
     nd_layer_name = "wfrc_mm"
 
-    nd_path = os.path.join(nd_gdb, nd)
+    nd_path = os.path.join(gdb, nd)
 
-    print("Solving skim using network {0} for {1}".format(nd_path, mode))
+    print("Solving skim using {0} network for {1} .".format(mode, nd_path))
     arcpy.AddMessage("Creating network from {}".format(nd_path))
 
     if arcpy.Exists(nd_path):
@@ -74,12 +71,20 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
 
     # Load origins, mapping the "CO_TAZID" field to the "Name" property of the Origins class
     field_mappings_origins["Name"].mappedFieldName = "CO_TAZID"
-    odcm.load(arcpy.nax.OriginDestinationCostMatrixInputDataType.Origins, centroids, field_mappings_origins)
+    odcm.load(
+        arcpy.nax.OriginDestinationCostMatrixInputDataType.Origins, 
+        centroids, 
+        field_mappings_origins
+    )
 
     # Load destinations, mapping the "CO_TAZID" field to the "Name" property of the Origins class 
     field_mappings_destinations = odcm.fieldMappings(arcpy.nax.OriginDestinationCostMatrixInputDataType.Destinations, True)
     field_mappings_destinations["Name"].mappedFieldName = "CO_TAZID"
-    odcm.load(arcpy.nax.OriginDestinationCostMatrixInputDataType.Destinations, centroids, field_mappings_destinations)
+    odcm.load(
+        arcpy.nax.OriginDestinationCostMatrixInputDataType.Destinations, 
+        centroids, 
+        field_mappings_destinations
+    )
 
 
     # Solve the OD skim matrix
@@ -128,7 +133,7 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
     df.drop(columns=df.columns.difference(keep_cols), inplace=True)
 
     # save table to input GDB
-    df.spatial.to_table(os.path.join(nd_gdb, out_table))
+    df.spatial.to_table(os.path.join(gdb, out_table))
 
     df_summary = df.groupby('Origin_TAZID').agg(
         accessible_jobs=pd.NamedAgg(column='accessible_jobs', aggfunc=sum),
@@ -142,15 +147,16 @@ def score(nd_gdb, nd = r"NetworkDataset\NetworkDataset_ND", out_table = "scores"
                       (taz_ato['HH'] * region_job_per_hh + taz_ato['JOB']))
 
     #taz_summary.to_csv(r'tmp\scores_summary.csv')
-    taz_ato.spatial.to_table(os.path.join(nd_gdb, out_table + "_summary"))
+    taz_ato.spatial.to_table(os.path.join(gdb, out_table + "_summary"))
 
     # save table to input GDB
-    print("Scores written to {}".format(os.path.join(nd_gdb, out_table + "_summary")))
+    print("Scores written to {}".format(os.path.join(gdb, out_table + "_summary")))
 
     print("Network ATO: {}".format(taz_ato['ato'].sum()))
     
-    end = time.time_ns()
-    print("Skim Matrix Solve Time: {}".format(end-start))
-    arcpy.AddMessage("Skim Matrix Solve Time: {}".format(end-start))
+    end = time.time()
+    duration = (end-start)/60
+    print("Skim Matrix Solve Time (mins): {}".format(duration))
+    arcpy.AddMessage("Skim Matrix Solve Time: {}".format(duration))
 
     return
