@@ -1,6 +1,7 @@
 import arcpy
 import os
 import pandas as pd
+import time
 
 centroids = os.path.join(os.path.abspath("."), r"shp\taz_wfrc.gdb\taz_centroids_sample")
 
@@ -33,6 +34,10 @@ def test(nd, mode = "Driving"):
         return True
 
 def build(nd):
+    """
+    Add a routine here to time the build process. Raise a warning
+    when < 10 seconds - or force a test / rebuild cycle
+    """
     if arcpy.Exists(nd):
         arcpy.management.Delete(nd)
 
@@ -45,5 +50,13 @@ def build(nd):
         os.path.join(target_gdb, "NetworkDataset")
     )
 
-    # finally, build the dataset
+    start = time.time()
+
     arcpy.nax.BuildNetwork(nd)
+
+    end = time.time()
+
+    duration = end-start
+    print("Network Build Time (seconds): {}".format(duration))
+    if duration < 10:
+        print("Warning: abnormally short build duration. Verify network validity.")
