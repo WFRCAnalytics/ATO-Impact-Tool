@@ -6,6 +6,8 @@ import time
 centroids = os.path.join(os.path.abspath("."), r"shp\taz_wfrc.gdb\taz_centroids_sample")
 
 def test(nd, mode = "Driving"):
+    arcpy.env.addOutputsToMap = False # suppress behavior that adds layers to map
+
     print("Testing integrity of network {0} for {1}".format(nd, mode))
     nd_layer_name = "tmp_test"
     arcpy.nax.MakeNetworkDatasetLayer(nd, nd_layer_name)
@@ -16,6 +18,8 @@ def test(nd, mode = "Driving"):
     odcm.load(arcpy.nax.OriginDestinationCostMatrixInputDataType.Origins, centroids)
     odcm.load(arcpy.nax.OriginDestinationCostMatrixInputDataType.Destinations, centroids)
     result = odcm.solve()
+
+    arcpy.env.addOutputsToMap = True
 
     # Export the results to a feature class
     if result.solveSucceeded:
@@ -32,6 +36,10 @@ def test(nd, mode = "Driving"):
     else:
         print("Network validation: PASS")
         return True
+
+
+
+
 
 def build(nd):
     """
