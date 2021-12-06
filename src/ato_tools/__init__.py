@@ -1,1 +1,1 @@
-from ato_tools import scoring
+from ato_tools import ato
