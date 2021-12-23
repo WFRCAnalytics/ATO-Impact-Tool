@@ -26,3 +26,15 @@ Run "cmd"
 Run `"C:\Program Files\ArcGIS\Pro\bin\Python\Scripts\propy.bat"` then `exit()`
 Then run `activate`
 then cd to c:\wfrc\ato and run `jupyter notebook`
+
+Network analyst has a bug... sometimes impedance values get mismatched.
+
+
+## Invalid Network Travel Times
+There is an error in Esri's Network Analyst suite that occassionally causes field values in a network dataset to get transposed between fields, resulting in nonsensical impedance values (refer to Esri Case #02899742). This project includes an embedded diagnostic to detect invalid networks.
+
+The `test` function tests for a correct network build by solving a simple routing problem between two points defined in `shp\test_points\test_points.shp`. If these points are not located within the service area of the network dataset, the test will fail.
+
+
+
+In general, if the network dataset fails, the cure is simply to rebuild the network dataset using `ato.build(nd)`.
