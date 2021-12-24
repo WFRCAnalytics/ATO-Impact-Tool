@@ -93,7 +93,9 @@ def test(nd, mode = ['Cycling', 'Driving', 'Transit']):
         result = pd.DataFrame.spatial.from_featureclass(output_routes)
         travel_time = result.at[0,'Total_Minutes']
         if travel_time < 1 or travel_time > 60:
-            raise Exception("Invalid travel time {0} for {1}. See README".format(travel_time, mode))
+            msg = "Invalid travel time {0} for {1}. See README".format(travel_time, mode)
+            print(msg)
+            raise Exception(msg)
         else:
             print("Network test passes for {}.".format(test_mode))
             
@@ -204,9 +206,14 @@ def skim(gdb, mode = 'Driving', nd = None, centroids = None, out_table = 'skim_m
     print("Skim matrix written to " + out_table)
 
     end = time.time()
-    duration = (end-start)/60
+    duration = round((end-start)/60, 2)
+
     print("Skim Matrix Solve Time (mins): {}".format(duration))
     arcpy.AddMessage("Skim Matrix Solve Time: {}".format(duration))
+    if duration < 2.5:
+        print("Error with {}. Run ato.build('{0}')".format(nd))
+        raise Exception('Skim matrix solve time too short. Consider rebuilding network.')
+
 
     arcpy.env.addOutputsToMap = True
     arcpy.env.workspace = tmp_env
@@ -322,7 +329,7 @@ def score(gdb, skim_matrix = None, taz_table = None, job_per_hh = None, out_tabl
 
 def comp(gdb, driving_ato_table = 'ato_driving', 
          transit_ato_table = 'ato_transit', cycling_ato_table = 'ato_cycling',
-         out_table = 'ato_comp'):
+         out_table = 'ato'):
     """Merge ATO tables for driving, transit, and cycling
 
     Keyword arguments:
