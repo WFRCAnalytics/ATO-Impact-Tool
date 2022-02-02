@@ -6,8 +6,32 @@ import errno
 from arcgis.features import SpatialDataFrame
 import math
 
-
 test_centroids = os.path.join(os.path.abspath("."), r"baseline.gdb\taz_centroids_sample")
+
+def _ato(jobs, accessible_jobs, hh, accessible_hh, job_per_hh):
+    """WFRC's ATO weighting formula"""
+    if jobs + hh == 0:
+        ato = 0
+    else:
+        ato = (
+            (accessible_hh * jobs + 
+             accessible_jobs * hh * job_per_hh) / 
+            (jobs + hh * job_per_hh)
+        )
+    return ato
+
+
+def _survey_weight(t):
+    """WFRC's Distance Decay Function"""
+    if t <= 3:
+        return 1
+    elif (t > 3) & (t <= 20):
+        return -0.0382 * t + 1.1293
+    elif t > 20:
+        return 1/(1 + math.exp(0.1092 * t - 1.5604))
+    else:
+        return 0
+
 
 def build(nd, template = None, validate = True):
     """Builds network dataset and runs diagnostics
@@ -46,6 +70,7 @@ def build(nd, template = None, validate = True):
     
     if validate == True:
         test(nd)
+
 
 def test(nd, mode = ['Cycling', 'Driving', 'Transit']):
     """ Test validity of network dataset by routing two points in SLC
@@ -101,16 +126,6 @@ def test(nd, mode = ['Cycling', 'Driving', 'Transit']):
             
     arcpy.env.addOutputsToMap = True
 
-
-def _survey_weight(t):
-    if t <= 3:
-        return 1
-    elif (t > 3) & (t <= 20):
-        return -0.0382 * t + 1.1293
-    elif t > 20:
-        return 1/(1 + math.exp(0.1092 * t - 1.5604))
-    else:
-        return 0
 
 def skim(gdb, mode = 'Driving', nd = None, centroids = None, out_table = 'skim_matrix'):
     """Given a network dataset and set of points, solve a skim matrix of travel times between points
@@ -221,19 +236,6 @@ def skim(gdb, mode = 'Driving', nd = None, centroids = None, out_table = 'skim_m
     return True
 
 
-def _ato(jobs, accessible_jobs, hh, accessible_hh, job_per_hh):
-    """Implment WFRC's ATO weighting formula"""
-    if jobs + hh == 0:
-        return 0
-    else:
-        ato = (
-            (accessible_hh * jobs + 
-             accessible_jobs * hh * job_per_hh) / 
-            (jobs + hh * job_per_hh)
-        )
-        return ato
-
-
 def score(gdb, skim_matrix = None, taz_table = None, job_per_hh = None, out_table = None):
     """Given a skim matrix, solve and score TAZ ATO
     
@@ -327,67 +329,15 @@ def score(gdb, skim_matrix = None, taz_table = None, job_per_hh = None, out_tabl
     return ato_score
 
 
-def comp(gdb, driving_ato_table = 'ato_driving', 
-         transit_ato_table = 'ato_transit', cycling_ato_table = 'ato_cycling',
-         out_table = 'ato'):
-    """Merge ATO tables for driving, transit, and cycling
-
-    Keyword arguments:
-    gdb -- 
-    driving_ato_table -- 
-    transit_ato_table -- 
-    cycling_ato_table --
-    out_table --
-    """
-
-    # location of the file geodatabase with the WFRC TAZ shapes and TAZ centroids    
-    tmp_env = arcpy.env.workspace
-    arcpy.env.workspace = gdb
-
-    arr = arcpy.da.TableToNumPyArray(driving_ato_table, '*')
-    driving = pd.DataFrame(arr)
-
-    arr = arcpy.da.TableToNumPyArray(transit_ato_table, '*')
-    transit = pd.DataFrame(arr)
-
-    arr = arcpy.da.TableToNumPyArray(cycling_ato_table, '*')
-    cycling = pd.DataFrame(arr)
-
-    df = pd.merge(
-        pd.merge(
-            driving, 
-            transit, 
-            on=['CO_TAZID', 'HH', 'JOB'],
-            how="left",
-            suffixes=("_driving", "_transit")
-        ), 
-        cycling.rename(columns = {'accessible_jobs': 'accessible_jobs_cycling',
-                                  'accessible_hh': 'accessible_hh_cycling',
-                                  'ato': 'ato_cycling'}),
-        how="left",
-        on=['CO_TAZID', 'HH', 'JOB']
-    )
-
-    df['accessible_jobs'] = df[['accessible_jobs_driving',
-                                'accessible_jobs_transit',
-                                'accessible_jobs_cycling']].sum(axis=1)
-
-    df['accessible_hh'] = df[['accessible_hh_driving',
-                              'accessible_hh_transit',
-                              'accessible_hh_cycling']].sum(axis=1)
-
-    df['ato'] = df[['ato_driving', 'ato_transit', 'ato_cycling']].sum(axis=1)
-
-    df[['CO_TAZID', 'accessible_jobs', 'accessible_hh', 'ato']].spatial.to_table(out_table)
-
-    print('Composite ATO {0} written to {1}'.format(df['ato'].sum(), out_table))
-
-    arcpy.env.workspace = tmp_env
-
-
-def diff(baseline, scenario, out_table):
+def diff(baseline, scenario, out_table = None):
     """Calculate difference in ATO between two tables
     
+    Saves the result to out_table and returns the sum
+
+    Keyword arguments:
+    baseline -- 
+    scenario -- 
+    out_table --
     """
 
     field_list = ['CO_TAZID', 'accessible_jobs', 'accessible_hh', 'ato']
@@ -410,6 +360,11 @@ def diff(baseline, scenario, out_table):
     df['diff_jobs'] = df['accessible_jobs_after'] - df['accessible_jobs_before']
     df['diff_ato'] = df['ato_after'] - df['ato_before']
 
-    df[['CO_TAZID', 'diff_jobs', 'diff_hh', 'diff_ato']].spatial.to_table(out_table)
+    if out_table != None:
+        df[['CO_TAZID', 'diff_jobs', 'diff_hh', 'diff_ato']].spatial.to_table(out_table)
 
-    print('Scenario score: {0}'.format(df['diff_ato'].sum()))
+    score = df['diff_ato'].sum()
+
+    print('Scenario score: {0}'.format(score))
+
+    return score
