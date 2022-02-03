@@ -35,6 +35,20 @@ There is an error in Esri's Network Analyst suite that occassionally causes fiel
 
 The `test` function tests for a correct network build by solving a simple routing problem between two points defined in `shp\test_points\test_points.shp`. If these points are not located within the service area of the network dataset, the test will fail.
 
-
-
 In general, if the network dataset fails, the cure is simply to rebuild the network dataset using `ato.build(nd)`.
+
+# Operating the Tool
+
+## Network Setup
+
+To set up the multimodal transportation network, 
+1. Download Multimodal network dataset from [https://gis.utah.gov/data/transportation/street-network-analysis/] and extract to the `shp` folder
+3. Obtain a copy of a TDM export from WFRC and place in the shp folder
+
+Run 1_network_setup.ipynb (requires Network Analyst)
+
+## TAZ Setup
+
+1. Download [Wasatch Front TAZs in File Geodatabase format from WFRC](https://data.wfrc.org/datasets/wfrc::access-to-opportunities-work-related-taz-based/about). Extract to `taz.gdb` and place in the `shp` folder
+
+Run `2_taz_setup.ipynb` (requires ArcGIS Pro Standard or Advanced)
