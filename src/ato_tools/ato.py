@@ -78,9 +78,10 @@ def test(nd, mode = ['Cycling', 'Driving', 'Transit']):
     Keyword arguments:
     nd -- full path to network dataset to be tested
     mode -- a string or list of ['Cycling', 'Driving', 'Transit']
-    Solve a simple route between two static points downtown and ensure
-    travel times are > 1 minute and < 60 minutes for all modes
-    Refer to Esri Case #02899742
+
+    Validate network dataset by solving a simple route between 
+    two static points downtown and ensure travel times are > 1 
+    minute and < 60 minutes for all modes (Refer to Esri Case #02899742)
     """
     arcpy.env.addOutputsToMap = False
 
@@ -127,11 +128,11 @@ def test(nd, mode = ['Cycling', 'Driving', 'Transit']):
     arcpy.env.addOutputsToMap = True
 
 
-def skim(gdb, mode = 'Driving', nd = None, centroids = None, out_table = 'skim_matrix'):
+def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
     """Given a network dataset and set of points, solve a skim matrix of travel times between points
     
     Keyword arguments:
-    nd -- input network datasetthe full path of the network dataset  to be used for scoring
+    nd -- full path of the network dataset to be used for scoring
     mode -- travel mode ("Driving" | "Transit" | "Cycling")
     centroids -- full path of feature class of centroids with CO_TAZID, HH, and JOB fields
     out_table -- full path of output skim matrix
@@ -150,13 +151,12 @@ def skim(gdb, mode = 'Driving', nd = None, centroids = None, out_table = 'skim_m
     # location of the file geodatabase with the WFRC TAZ shapes and TAZ centroids    
     tmp_env = arcpy.env.workspace
 
-    arcpy.env.workspace = gdb
+    target_gdb = nd[:-len(r'\NetworkDataset\NetworkDataset_ND')]
 
-    if nd == None:
-        nd = os.path.join(gdb, r'NetworkDataset\NetworkDataset_ND')
+    arcpy.env.workspace = target_gdb
 
     if centroids == None:
-        centroids = os.path.join(gdb, r'taz_centroids')
+        centroids = os.path.join(target_gdb, r'taz_centroids')
 
     nd_layer_name = "wfrc_mm_nd"
 
@@ -236,28 +236,18 @@ def skim(gdb, mode = 'Driving', nd = None, centroids = None, out_table = 'skim_m
     return True
 
 
-def score(gdb, skim_matrix = None, taz_table = None, job_per_hh = None, out_table = None):
+def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     """Given a skim matrix, solve and score TAZ ATO
     
     Keyword arguments:
-    gdb -- file gdb for taz_table and out_table if not specified
-    skim_matrix -- skim matrix of travel times for scoring
+    skim_matrix -- full path to skim matrix of travel times for scoring
     taz_table -- full path of table with CO_TAZID, HH, and JOB fields
-    job_per_hh -- regional retio of jobs per household for ATO weighting
     out_table -- full path of output table with ATO scores
+    job_per_hh -- override regional ratio of jobs per household for ATO weighting
 
     This function ...
     """
     start = time.time()
-
-    if taz_table == None:
-        taz_table = os.path.join(gdb, r'taz_table')
-
-    if out_table == None:
-        out_table = os.path.join(gdb, r'ato')
-
-    if skim_matrix == None:
-        skim_matrix = os.path.join(gdb, 'skim_matrix')
 
     arr = arcpy.da.TableToNumPyArray(skim_matrix, '*')
     od = pd.DataFrame(arr)
@@ -330,14 +320,12 @@ def score(gdb, skim_matrix = None, taz_table = None, job_per_hh = None, out_tabl
 
 
 def diff(baseline, scenario, out_table = None):
-    """Calculate difference in ATO between two tables
+    """Calculate and return difference between two ATO score tables.
     
-    Saves the result to out_table and returns the sum
-
     Keyword arguments:
-    baseline -- 
-    scenario -- 
-    out_table --
+    baseline -- full path to baseline ato score table output from score() function
+    scenario -- full path to scenario ato score table output from score() function
+    out_table -- Optional. Full path to write output table
     """
 
     field_list = ['CO_TAZID', 'accessible_jobs', 'accessible_hh', 'ato']
