@@ -10,9 +10,8 @@ test_centroids = os.path.join(os.path.abspath("."), r"baseline.gdb\taz_centroids
 
 def _ato(jobs, accessible_jobs, hh, accessible_hh, job_per_hh):
     """WFRC's ATO weighting formula"""
-    if jobs + hh == 0:
-        ato = 0
-    else:
+    ato = 0
+    if jobs + hh >= 1:
         ato = (
             (accessible_hh * jobs + 
              accessible_jobs * hh * job_per_hh) / 
@@ -244,8 +243,6 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     taz_table -- full path of table with CO_TAZID, HH, and JOB fields
     out_table -- full path of output table with ATO scores
     job_per_hh -- override regional ratio of jobs per household for ATO weighting
-
-    This function ...
     """
     start = time.time()
 
@@ -266,7 +263,7 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     taz = pd.DataFrame(arr, columns=['CO_TAZID', 'HH', 'JOB'])
 
     if job_per_hh == None:
-        job_per_hh = taz['JOB'].sum() / taz['HH'].sum()
+        job_per_hh = round(taz['JOB'].sum() / taz['HH'].sum(), 5)
         print("Regional Jobs per HH Ratio: {}".format(job_per_hh))
 
     df = pd.merge(od, taz, left_on="DestinationName", right_on="CO_TAZID")
