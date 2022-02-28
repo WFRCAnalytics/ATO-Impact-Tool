@@ -34,6 +34,18 @@ The tool is implemented through Esri ArcGIS Pro Network Analyst using Python and
 
 An analyst or planner could quickly create scenario networks for a bunch of projects and then let the scoring notebook run overnight.
 
+Scores for each scenario represent the weighted average TAZ-level change in access for each category:
+
+* Average TAZ-level increased access to jobs, weighted by households within the TAZ
+* Average TAZ-level increased access to households, weighted by jobs within the TAZ
+* Average TAZ-level increased ATO (using WFRC’s ATO formula), weighted by jobs and households within the TAZ)
+* Average TAZ-level increased access to jobs, weighted by households within the TAZ, for Poverty Equity Focus Area TAZs
+* Average TAZ-level increased access to jobs, weighted by households within the TAZ, for Minority Equity Focus Area TAZs
+* Average TAZ-level increased access to jobs, weighted by households within the TAZ, for Zero Car Household Equity Focus Area TAZs
+* Average TAZ-level increased access to jobs, weighted by households within the TAZ, for All Equity Focus Area TAZs
+
+Scores for each scenario are stored into an export CSV: `scenario\scenario_scores.csv` for transportation projects and `scenario\land_use_scenario_scores.csv` for land use projects. 
+
 
 ## Network Analyst Bug - Invalid Network Travel Times
 There is an error in Esri's Network Analyst suite that occassionally causes field values in a network dataset to get transposed between fields, resulting in nonsensical impedance values (refer to Esri Case #02899742). This project includes an embedded diagnostic to detect invalid networks.
