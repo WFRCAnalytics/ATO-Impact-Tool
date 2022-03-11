@@ -6,8 +6,9 @@ A Network Analyst based tool for assessing changes in Access to Opportunity (ATO
 
 * [Mark Egge](mailto:egge@highstreetconsulting.com) - High Street
 * Anna Batista - High Street
-* Bert Granberg - WFRC Analytics
-* Josh Reynolds - WFRC Analytics
+* Bert Granberg - WFRC
+* Julie Bjornstad - WFRC
+* Josh Reynolds - WFRC
 
 
 ## Motivation
