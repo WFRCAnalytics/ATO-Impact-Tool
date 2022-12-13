@@ -6,6 +6,12 @@ Index/*
 .DS_Store
 .ipynb_checkpoints/*
 ato.gdb/*
+GpMessages/
+ImportLog/
+scenario/Driving/
+scenario/Transit/
+scenario/scenario_scores.csv
+ato.csv.xml
 
 __pycache__/
 *.py[cod]
