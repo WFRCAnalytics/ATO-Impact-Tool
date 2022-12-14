@@ -225,7 +225,7 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
     print("Skim Matrix Solve Time (mins): {}".format(duration))
     arcpy.AddMessage("Skim Matrix Solve Time: {}".format(duration))
     if duration < 2.5:
-        print("Error with {}. Run ato.build('{0}')".format(nd))
+        print("Error with {}. Run ato.build('{}')".format(nd))
         raise Exception('Skim matrix solve time too short. Consider rebuilding network.')
 
 
