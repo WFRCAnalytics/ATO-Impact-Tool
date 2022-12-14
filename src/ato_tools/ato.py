@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import time
 import errno
-from arcgis.features import SpatialDataFrame
+from arcgis.features import GeoAccessor, GeoSeriesAccessor
 import math
 
 test_centroids = os.path.join(os.path.abspath("."), r"baseline.gdb\taz_centroids_sample")
@@ -133,7 +133,7 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
     Keyword arguments:
     nd -- full path of the network dataset to be used for scoring
     mode -- travel mode ("Driving" | "Transit" | "Cycling")
-    centroids -- full path of feature class of centroids with CO_TAZID, HH, and JOB fields
+    centroids -- full path of feature class of centroids with taz_id, HH, and JOB fields
     out_table -- full path of output skim matrix
 
     This function uses Network Analyst (arcpy.nax) to solve routes between all TAZs.
@@ -179,17 +179,17 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
     # Load inputs using field mappings, including the pre-calculated location fields
     field_mappings_origins = odcm.fieldMappings(arcpy.nax.OriginDestinationCostMatrixInputDataType.Origins, True)
 
-    # Load origins, mapping the "CO_TAZID" field to the "Name" property of the Origins class
-    field_mappings_origins["Name"].mappedFieldName = "CO_TAZID"
+    # Load origins, mapping the "taz_id" field to the "Name" property of the Origins class
+    field_mappings_origins["Name"].mappedFieldName = "taz_id"
     odcm.load(
         arcpy.nax.OriginDestinationCostMatrixInputDataType.Origins, 
         centroids, 
         field_mappings_origins
     )
 
-    # Load destinations, mapping the "CO_TAZID" field to the "Name" property of the Origins class 
+    # Load destinations, mapping the "taz_id" field to the "Name" property of the Origins class 
     field_mappings_destinations = odcm.fieldMappings(arcpy.nax.OriginDestinationCostMatrixInputDataType.Destinations, True)
-    field_mappings_destinations["Name"].mappedFieldName = "CO_TAZID"
+    field_mappings_destinations["Name"].mappedFieldName = "taz_id"
     odcm.load(
         arcpy.nax.OriginDestinationCostMatrixInputDataType.Destinations, 
         centroids, 
@@ -210,7 +210,7 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
 
     if od['Total_Time'].mean() < 1:
         print("Network validation: FAIL")
-        print("Travel Times: ", od['Total_Time'].head())
+        print("Travel Times: ", od['total_time'].head())
         raise ValueError('Network Travel Times are Zero - Invalid Network')
 
     # save table to input GDB
@@ -240,7 +240,7 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     
     Keyword arguments:
     skim_matrix -- full path to skim matrix of travel times for scoring
-    taz_table -- full path of table with CO_TAZID, HH, and JOB fields
+    taz_table -- full path of table with taz_id, HH, and JOB fields
     out_table -- full path of output table with ATO scores
     job_per_hh -- override regional ratio of jobs per household for ATO weighting
     """
@@ -249,55 +249,55 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     arr = arcpy.da.TableToNumPyArray(skim_matrix, '*')
     od = pd.DataFrame(arr)
 
-    if od['Total_Time'].mean() < 1:
+    if od['total_time'].mean() < 1:
         print("Network validation: FAIL")
-        print("Travel Times: ", od['Total_Time'].head())
+        print("Travel Times: ", od['total_time'].head())
         raise ValueError('Network Travel Times are Zero - Invalid Network')
 
     # Join the TAZ data
-    od['DestinationName'] = od['DestinationName'].astype(int)
+    od['destination_name'] = od['destination_name'].astype(int)
 
     # this will fail if the TAZ layer hasn't been prepared appropriately
     # refer to 2_taz_setup.ipynb
-    arr = arcpy.da.TableToNumPyArray(taz_table, ['CO_TAZID', 'HH', 'JOB'])
-    taz = pd.DataFrame(arr, columns=['CO_TAZID', 'HH', 'JOB'])
+    arr = arcpy.da.TableToNumPyArray(taz_table, ['taz_id', 'hh', 'job'])
+    taz = pd.DataFrame(arr, columns=['taz_id', 'hh', 'job'])
 
     if job_per_hh == None:
-        job_per_hh = round(taz['JOB'].sum() / taz['HH'].sum(), 5)
+        job_per_hh = round(taz['job'].sum() / taz['hh'].sum(), 5)
         print("Regional Jobs per HH Ratio: {}".format(job_per_hh))
 
-    df = pd.merge(od, taz, left_on="DestinationName", right_on="CO_TAZID")
+    df = pd.merge(od, taz, left_on="destination_name", right_on="taz_id")
 
-    df.rename(columns={"OriginName": "Origin_TAZID",
-                       "DestinationName": "Destination_TAZID"},
+    df.rename(columns={"origin_name": "origin_taz_id",
+                       "destination_name": "destination_taz_id"},
               inplace=True)
 
     # Weight outputs
-    df['survey_weight'] = df['Total_Time'].apply(lambda x: _survey_weight(x)).round(3)
+    df['survey_weight'] = df['total_time'].apply(lambda x: _survey_weight(x)).round(3)
 
-    df['accessible_jobs'] = round(df['survey_weight'] * df['JOB'])
-    df['accessible_hh'] = round(df['survey_weight'] * df['HH'])
+    df['accessible_jobs'] = round(df['survey_weight'] * df['job'])
+    df['accessible_hh'] = round(df['survey_weight'] * df['hh'])
 
     # keep only relevant columns
-    keep_cols = ['Origin_TAZID', 'Destination_TAZID', 'Total_Time', 
+    keep_cols = ['origin_taz_id', 'destination_taz_id', 'total_time', 
                  'accessible_jobs', 'accessible_hh']
     df.drop(columns=df.columns.difference(keep_cols), inplace=True)
 
     # save table to input GDB
     # df.spatial.to_table(out_table + '_full') # not needed
 
-    df_summary = df.groupby('Origin_TAZID').agg(
+    df_summary = df.groupby('origin_taz_id').agg(
         accessible_jobs=pd.NamedAgg(column='accessible_jobs', aggfunc=sum),
         accessible_hh=pd.NamedAgg(column='accessible_hh', aggfunc=sum)
     )
-    df_summary['CO_TAZID'] = df_summary.index.astype(int)
-    taz_ato = pd.merge(df_summary, taz, on="CO_TAZID")
+    df_summary['taz_id'] = df_summary.index.astype(int)
+    taz_ato = pd.merge(df_summary, taz, on="taz_id")
 
     taz_ato['ato'] = taz_ato.apply(
         lambda x: _ato(
-            x['JOB'],
+            x['job'],
             x['accessible_jobs'],
-            x['HH'],
+            x['hh'],
             x['accessible_hh'],
             job_per_hh
         ),
@@ -325,7 +325,7 @@ def diff(baseline, scenario, out_table = None):
     out_table -- Optional. Full path to write output table
     """
 
-    field_list = ['CO_TAZID', 'accessible_jobs', 'accessible_hh', 'ato']
+    field_list = ['taz_id', 'accessible_jobs', 'accessible_hh', 'ato']
 
     arr = arcpy.da.TableToNumPyArray(baseline, field_list)
     baseline = pd.DataFrame(arr, columns = field_list)
@@ -336,7 +336,7 @@ def diff(baseline, scenario, out_table = None):
     df = pd.merge(
         baseline, 
         scenario, 
-        on='CO_TAZID', 
+        on='taz_id', 
         how="inner",
         suffixes=("_before", "_after")
     )
@@ -346,7 +346,7 @@ def diff(baseline, scenario, out_table = None):
     df['diff_ato'] = df['ato_after'] - df['ato_before']
 
     if out_table != None:
-        df[['CO_TAZID', 'diff_jobs', 'diff_hh', 'diff_ato']].spatial.to_table(out_table)
+        df[['taz_id', 'diff_jobs', 'diff_hh', 'diff_ato']].spatial.to_table(out_table)
 
     score = df['diff_ato'].sum()
 
