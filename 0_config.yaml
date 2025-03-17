@@ -1,0 +1,12 @@
+source_network_dataset: "shp\\MM_NetworkDataset_03052025.gdb\\NetworkDataset"
+source_tdm: "shp\\Master_Segs_withFactors_20230801_BY2023SegSummary\\Master_Segs_withFactors_20230801_BY2023SegSummary.shp"
+pythonw: "C:\\Program Files\\ArcGIS\\Pro\\bin\\Python\\envs\\arcgispro-py3\\python.exe"
+
+
+network_setup: "1_network_setup.py"
+taz_setup: "2_taz_setup.py"
+mod_drive: "3_mod_drive.py"
+mod_bike: "3_mod_bike.py"
+mod_transit: "3_mod_transit.py"
+mod_landuse: "3_mod_landuse.py"
+score: "4_score.py"

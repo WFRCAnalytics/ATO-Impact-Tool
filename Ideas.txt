@@ -1,0 +1,17 @@
+# GUI Idea
+- script 1, 2, and 4 are hands off and could definitely run without ArcGIS Pro open
+- only the mod scripts (3)  require the map
+- we could use a light gui to run most the scripts, then open the proejct when needed
+
+- some kind of hub
+	- s
+
+# issues
+- there multiple points where calculate field fails for no reason
+	- replace with arcgis api
+	
+	
+3 mod script
+- user provisions
+	- scenario name
+	- facility type

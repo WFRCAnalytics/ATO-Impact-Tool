@@ -48,7 +48,7 @@ def build(nd, template = None, validate = True):
         template = os.path.join(os.path.abspath("."), "network_template.xml")
 
     target_gdb = nd[:-len(r'\NetworkDataset\NetworkDataset_ND')]
-    print("Target GDB: {}".format(target_gdb))
+    print(f"Target GDB: {target_gdb}")
     
     # create network dataset from template
     arcpy.nax.CreateNetworkDatasetFromTemplate(
@@ -63,7 +63,7 @@ def build(nd, template = None, validate = True):
     end = time.time()
 
     duration = end-start
-    print("Network Build Time (seconds): {}".format(duration))
+    print(f"Network Build Time (seconds): {duration}")
     if duration < 10:
         print("Warning: abnormally short build duration. Verify network validity.")
     
@@ -118,11 +118,11 @@ def test(nd, mode = ['Cycling', 'Driving', 'Transit']):
         result = pd.DataFrame.spatial.from_featureclass(output_routes)
         travel_time = result.at[0,'Total_Minutes']
         if travel_time < 1 or travel_time > 60:
-            msg = "Invalid travel time {0} for {1}. See README".format(travel_time, mode)
+            msg = f"Invalid travel time {travel_time} for {mode}. See README"
             print(msg)
             raise Exception(msg)
         else:
-            print("Network test passes for {}.".format(test_mode))
+            print(f"Network test passes for {test_mode}.")
             
     arcpy.env.addOutputsToMap = True
 
@@ -159,8 +159,8 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
 
     nd_layer_name = "wfrc_mm_nd"
 
-    print("Solving skim using {0} network for {1} .".format(mode, nd))
-    arcpy.AddMessage("Creating network from {}".format(nd))
+    print(f"Solving skim using {mode} network for {nd} .")
+    arcpy.AddMessage(f"Creating network from {nd}")
 
     if arcpy.Exists(nd):
         arcpy.nax.MakeNetworkDatasetLayer(nd, nd_layer_name)
@@ -222,10 +222,10 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
     end = time.time()
     duration = round((end-start)/60, 2)
 
-    print("Skim Matrix Solve Time (mins): {}".format(duration))
-    arcpy.AddMessage("Skim Matrix Solve Time: {}".format(duration))
-    if duration < 2.5:
-        print("Error with {}. Run ato.build('{}')".format(nd))
+    print(f"Skim Matrix Solve Time (mins): {duration}")
+    arcpy.AddMessage(f"Skim Matrix Solve Time: {duration}")
+    if duration < 2:
+        print(f"Error with {nd}. Run ato.build('{nd}')")
         raise Exception('Skim matrix solve time too short. Consider rebuilding network.')
 
 
@@ -264,7 +264,7 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
 
     if job_per_hh == None:
         job_per_hh = round(taz['job'].sum() / taz['hh'].sum(), 5)
-        print("Regional Jobs per HH Ratio: {}".format(job_per_hh))
+        print(f"Regional Jobs per HH Ratio: {job_per_hh}")
 
     df = pd.merge(od, taz, left_on="destination_name", right_on="taz_id")
 
@@ -308,10 +308,10 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     taz_ato.spatial.to_table(out_table)
 
     # save table to input GDB
-    print("Scores written to {}".format(out_table))
+    print(f"Scores written to {out_table}")
 
     ato_score = taz_ato['ato'].sum()
-    print("Network ATO: {}".format(ato_score))
+    print(f"Network ATO: {ato_score}")
     
     return ato_score
 
@@ -350,6 +350,6 @@ def diff(baseline, scenario, out_table = None):
 
     score = df['diff_ato'].sum()
 
-    print('Scenario score: {0}'.format(score))
+    print(f'Scenario score: {score}')
 
     return score
