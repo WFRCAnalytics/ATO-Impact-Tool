@@ -6,35 +6,93 @@ import yaml
 import subprocess
 import threading
 import sys
+from tkinter import ttk
 
+# Load YAML configuration
 def load_yaml(file_path):
     with open(file_path, 'r') as file:
         return yaml.safe_load(file)
 
+config = load_yaml('0_config.yaml')  # Load config
 
-# source files and fields - update this before running!
-config = load_yaml('0_config.yaml')
-            
-# Run the script with pythonw.exe to avoid the command window appearing (Windows only)
-
+# Redirect console output to a text widget
 class RedirectText:
     def __init__(self, text_widget):
         self.text_widget = text_widget
 
     def write(self, string):
-        self.text_widget.insert(tk.END, string)  # Insert new text at the end
+        self.text_widget.insert(tk.END, string + "\n")  # Add newline for readability
         self.text_widget.see(tk.END)  # Auto-scroll to the bottom
         self.text_widget.update_idletasks()  # Ensure UI updates immediately
 
     def flush(self):
         pass  # Not needed
 
+def redirect_stdout_to_widget(text_widget):
+    """Redirects stdout and stderr to the given text widget."""
+    sys.stdout = RedirectText(text_widget)
+    sys.stderr = RedirectText(text_widget)  # Also capture stderr for errors
 
+class BasePage(tk.Frame):
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+        self.text_output = None  # Placeholder for text widget
+
+    def setup_output_widget(self, text_widget):
+        """Set up output redirection for the text widget."""
+        self.text_output = text_widget
+        
+        sys.stderr = RedirectText(self.text_output)  # Also capture errors
+
+    def launch_script(self, script_path):
+        """Launches an external script and redirects its output to the text widget."""
+        if not os.path.exists(script_path):
+            messagebox.showerror("Error", f"Script file not found: {script_path}")
+            return
+
+        def run():
+            try:
+                pythonw_path = config.get('pythonw', sys.executable)  # Use default Python if not specified
+                process = subprocess.Popen(
+                    [pythonw_path, '-u', script_path], 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.PIPE,
+                    text=True, 
+                    bufsize=1
+                )
+
+                # Read output line-by-line and update the text widget
+                for line in iter(process.stdout.readline, ''):
+                    sys.stdout.write(line)  # Write directly to redirected stdout
+                    sys.stdout.flush()  # Force immediate UI update
+
+                for err in iter(process.stderr.readline, ''):
+                    sys.stderr.write(err)  # Write directly to stderr
+
+                process.stdout.close()
+                process.stderr.close()
+                process.wait()
+
+                messagebox.showinfo("Success", "Script finished successfully!")
+
+            except Exception as e:
+                sys.stderr.write(f"Error: {e}\n")
+                messagebox.showerror("Error", f"Failed to launch script:\n{e}")
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+
+# ====================== MAIN APPLICATION CLASS ======================
 class MyApp:
     def __init__(self, root):
         self.root = root
         self.root.title("ATO Impact Tool")
-        self.root.geometry("430x500")
+        self.root.geometry("480x500")
+        
+        # set the gui style
+        style = ttk.Style()
+        style.theme_use("clam")  # Change this to "alt", "default", etc.
 
         # Create menu bar
         menu_bar = Menu(root)
@@ -46,139 +104,295 @@ class MyApp:
         file_menu.add_command(label="Exit", command=root.quit)
         menu_bar.add_cascade(label="File", menu=file_menu)
 
-        # Setup menu
+        # Settings menu
         setup_menu = Menu(menu_bar, tearoff=0)
-        setup_menu.add_command(label="Settings", command=self.open_config_file)
-        setup_menu.add_command(label="Delete All Scenarios", command=None)
-        menu_bar.add_cascade(label="Setup", menu=setup_menu)
-       
+        setup_menu.add_command(label="Edit config file", command=self.open_config_file)
+        menu_bar.add_cascade(label="Settings", menu=setup_menu)
 
-        # Main frame with grid layout
-        main_frame = tk.Frame(root)
-        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # ===================== PAGE CONTAINER =====================
+        self.container = tk.Frame(root)
+        self.container.pack(fill="both", expand=True)
 
-        # Left frame with buttons in a grid
-        left_frame = tk.Frame(main_frame)
-        left_frame.grid(row=0, column=0, sticky="n")
+        # Dictionary to store pages
+        self.pages = {}
 
-        # Create buttons one by one
-        btn1 = tk.Button(left_frame, text="1 Network Setup", font=('Arial', 16), width=15, command=lambda: self.launch_script(config['network_setup']))
-        btn1.grid(row=0, column=0, pady=5, padx=10)
+        # Create pages
+        for Page in (MainMenu, NetworkSetupPage, TazSetupPage, ModProjectsPage, ModBikePage, ScoreModsPage):
+            page_instance = Page(self.container, self)
+            self.pages[Page] = page_instance
+            page_instance.grid(row=0, column=0, sticky="nsew")
 
-        btn2 = tk.Button(left_frame, text="2 TAZ Setup", font=('Arial', 16), width=15, command=lambda: self.launch_script(config['taz_setup']))
-        btn2.grid(row=1, column=0, pady=5, padx=10)
+        self.show_page(MainMenu)  # Show the main menu first
 
-        # go to mod projects window
-        btn3 = tk.Button(left_frame, text="3 Mod Projects", font=('Arial', 16), width=15, command=None)
-        btn3.grid(row=2, column=0, pady=5, padx=10)
+    def show_page(self, page):
+        """Raises the selected page to the front and updates stdout redirection."""
+        self.pages[page].tkraise()
 
-        btn4 = tk.Button(left_frame, text="4 Score Projects", font=('Arial', 16), width=15, command=lambda: self.launch_script(config['4_score']))
-        btn4.grid(row=3, column=0, pady=5, padx=10)
-
-        # Right frame for the image
-        self.right_frame = tk.Frame(main_frame)
-        self.right_frame.grid(row=0, column=1, padx=20)
-
-        # Load image
-        self.load_image("ato_graphic.png")  # Change to the actual image path
-
-        # Create a label to display output
-        # Create a Text widget with a Scrollbar
-        self.text_frame = tk.Frame(root)
-        self.text_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        self.text_output = tk.Text(self.text_frame, wrap="word", height=15)
-        self.text_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        self.scrollbar = tk.Scrollbar(self.text_frame, command=self.text_output.yview)
-        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-        self.text_output.config(yscrollcommand=self.scrollbar.set)
-        # Redirect stdout to label
-        sys.stdout = RedirectText(self.text_output)
-
-        # # Bottom frame
-        # self.bottom_frame = tk.Frame(main_frame)
-        # self.bottom_frame.grid(row=1, column=0, padx=20)
-
-        # self.description = tk.Label(self.bottom_frame, text='blah blah blah')
-        # self.value = tk.StringVar()
-
-        # self.output.label = tk.Label(self.bottom_frame, text=self.value)
+        # Redirect stdout dynamically to the selected page's text_output
+        if hasattr(self.pages[page], 'text_output'):
+            sys.stdout = RedirectText(self.pages[page].text_output)
 
     def open_file(self):
         file_path = filedialog.askopenfilename(title="Open File")
         if file_path:
-            self.load_image(file_path)
+            self.pages[MainMenu].load_image(file_path)
 
-    def show_settings(self):
-        messagebox.showinfo("Settings", "Settings menu clicked.")
+    def open_config_file(self):
+        """Opens the configuration file."""
+        filepath = '0_config.yaml'
+        try:
+            if os.name == 'nt':  # Windows
+                os.startfile(filepath)
+            elif os.name == 'posix':  # macOS & Linux
+                subprocess.run(["xdg-open", filepath], check=True)
+        except Exception as e:
+            print(f"Error opening file: {e}")
+
+# ====================== MAIN MENU CLASS ======================
+class MainMenu(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+
+        # Left frame with buttons
+        left_frame = tk.Frame(self)
+        left_frame.grid(row=0, column=0, sticky="n", padx=10, pady=10)
+
+        # Create buttons
+        btn1 = ttk.Button(left_frame, text="1 Network Setup", width=15,  padding=(35, 15),
+                         command=lambda: controller.show_page(NetworkSetupPage))
+        btn1.grid(row=0, column=0, pady=5)
+
+        btn2 = ttk.Button(left_frame, text="2 TAZ Setup", width=15,  padding=(35, 15),
+                         command=lambda: controller.show_page(TazSetupPage))
+        btn2.grid(row=1, column=0, pady=5)
+
+        btn3 = ttk.Button(left_frame, text="3 Mod Projects", width=15, padding=(35, 15),
+                         command=lambda: controller.show_page(ModProjectsPage))
+        btn3.grid(row=2, column=0, pady=5)
+
+        btn4 = ttk.Button(left_frame, text="4 Score Projects", width=15,padding=(35, 15), 
+                          command=lambda: controller.show_page(ScoreModsPage))
+        btn4.grid(row=3, column=0, pady=5)
+
+        # Right frame for image
+        self.right_frame = tk.Frame(self)
+        self.right_frame.grid(row=0, column=1, padx=20)
+
+        # Load image
+        self.load_image("ato_graphic.png")  # Change to actual image path
+
 
     def load_image(self, image_path):
+        """Loads an image into the right frame."""
         try:
-            # Open and resize the image
             image = Image.open(image_path)
-            w, h = 250, 500  # Width and height
-            pct = 0.6 # Resize percentage
-            image = image.resize((int(w * pct), int(h * pct)))  # No anti-aliasing
-
+            image = image.resize((150, 300))  # Resize image
             self.img = ImageTk.PhotoImage(image)
 
-            # Clear previous widgets in the frame
+            # Clear previous image
             for widget in self.right_frame.winfo_children():
                 widget.destroy()
 
-            # Create a Label with a border to display the image
-            label = tk.Label(self.right_frame, image=self.img, bd=2, relief="solid")  # Border added
-            label.pack(pady=10, padx=10)
-
+            label = tk.Label(self.right_frame, image=self.img, bd=2, relief="solid")
+            label.pack()
         except Exception as e:
             print(f"Error loading image: {e}")
 
+# ====================== NETWORK SETUP PAGE CLASS ======================
+class NetworkSetupPage(BasePage):
+    def __init__(self, parent, controller):
+        super().__init__(parent, controller)
+        
+        frame = ttk.LabelFrame(self, text='1 Network Setup', padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="both", expand="yes")
 
-    def open_config_file(self):
-        filepath = '0_config.yaml'
-        if filepath:
-            try:
-                if os.name == 'nt':  # Windows
-                    os.startfile(filepath)
-                elif os.name == 'posix':  # macOS & Linux
-                    subprocess.run(["xdg-open", filepath], check=True)
-            except Exception as e:
-                print(f"Error opening file: {e}")
+        desc_label = ttk.Label(frame, text="This script prepares the Network Dataset datasets used for all ATO calculations.")
+        desc_label.grid(row=0, column=0, columnspan=2, pady=5)
+
+        back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
+        run_button = ttk.Button(frame, text="Run Script!", command=lambda: self.launch_script(config['network_setup']))
+
+        back_button.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        run_button.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+
+        # Output text box
+        self.text_frame = tk.Frame(frame)
+        self.text_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
+
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)
+        self.text_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.text_output.config(yscrollcommand=self.scrollbar.set)
+
+        # Make sure rows resize properly
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+        frame.rowconfigure(2, weight=1)  # Allow text widget to expand
+
+        # Redirect stdout to this page's text widget
+        self.setup_output_widget(self.text_output)
+
+# ====================== TAZ SETUP PAGE CLASS ======================
+class TazSetupPage(BasePage):
+    def __init__(self, parent, controller):
+        super().__init__(parent, controller)
+        
+        frame = ttk.LabelFrame(self, text='2 TAZ Setup',  padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="both", expand="yes")
+
+        desc_label = ttk.Label(frame, text="This script prepares the TAZ dataset used for all ATO calculations.")
+        desc_label.grid(row=0, column=0, columnspan=2, pady=5)
+
+        back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
+        run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config['taz_setup']))
+
+        back_button.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        run_button.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        
+        # Output text box
+        self.text_frame = tk.Frame(frame)
+        self.text_frame.grid(row=2, column=0, columnspan=2,  sticky="nsew", padx=10, pady=10)
+
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)
+        self.text_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.text_output.config(yscrollcommand=self.scrollbar.set)
+
+        # Make sure rows resize properly
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+        frame.rowconfigure(2, weight=1)  # Allow text widget to expand
+
+        # Redirect stdout to Text widget
+        
+        
+        
+        # back_button.pack()
+        # continue_button.pack()
+        # self.text_frame.pack()
+
     
-    def launch_script(self, script_path):
-        def run():
-            try:
-                pythonw_path = config['pythonw']
-                process = subprocess.Popen(
-                    [pythonw_path, '-u', script_path], 
-                    stdout=subprocess.PIPE, 
-                    stderr=subprocess.PIPE,
-                    text=True,  # Ensures text output
-                    bufsize=1  # Line buffering for real-time updates
-                )
 
-                # Read output line-by-line and update the label
-                for line in process.stdout:
-                    print(line.strip())  # Redirects output to the tkinter label
+# ====================== SCORE MODS PAGE CLASS ======================
+class ScoreModsPage(BasePage):
+    def __init__(self, parent, controller):
+        super().__init__(parent, controller)
+        
+        frame = ttk.LabelFrame(self, text='4 Score Mods',  padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="both", expand="yes")
 
-                process.stdout.close()
-                process.wait()  # Wait for the process to complete
-                
-                messagebox.showinfo("Success", "Script finished successfully!")
+        score_desc = '''This script scores the configured scenarios.\n\nAny unscored scenarios will be scored.\n\nTo re-score a scenario, open its corresponding file \ngeodatabaseand delete its "scores" and "scores_summary" table. '''
+        desc_label = ttk.Label(frame, text=score_desc)
+        desc_label.grid(row=0, column=0, columnspan=2, pady=5)
 
-            except Exception as e:
-                print(f"Error: {e}")
-                messagebox.showerror("Error", f"Failed to launch script:\n{e}")
+        back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
+        run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config['taz_setup']))
 
-        # Run in a separate thread to keep GUI responsive
-        thread = threading.Thread(target=run, daemon=True)
-        thread.start()
+        back_button.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        run_button.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        
+        # Output text box
+        self.text_frame = tk.Frame(frame)
+        self.text_frame.grid(row=2, column=0, columnspan=2,  sticky="nsew", padx=10, pady=10)
+
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)
+        self.text_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.text_output.config(yscrollcommand=self.scrollbar.set)
+
+        # Make sure rows resize properly
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+        frame.rowconfigure(2, weight=1)  # Allow text widget to expand
+
+        # Redirect stdout to Text widget
+        
+        
+#======================== MOD PROJECTS PAGE ==========================
+
+class ModProjectsPage(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+
+        frame = ttk.LabelFrame(self, text='3 Mod Projects',  padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="both", expand="yes")
+
+        mod_desc = '''Select which type of modification you wish to add (Drive, Transit, Bike, Land Use)\n\nAll modifications will be scored at once in the final script'''
+        desc_label = ttk.Label(frame, text=mod_desc)
+        desc_label.grid(row=0, column=0, columnspan=2, pady=5)
+
+        # # frame with buttons
+        # frame = tk.Frame(self)
+        # frame.grid(row=0, column=0, sticky="n", padx=10, pady=10)
+
+        # Create buttons
+        btn1 = ttk.Button(frame, text="Mod Drive", width=15,  padding=(35, 15),
+                         command=lambda: controller.show_page(NetworkSetupPage))
+        btn1.grid(row=1, column=0, pady=5)
+
+        btn2 = ttk.Button(frame, text="Mod Transit", width=15,  padding=(35, 15),
+                         command=lambda: controller.show_page(TazSetupPage))
+        btn2.grid(row=1, column=1, pady=5)
+
+        btn3 = ttk.Button(frame, text="Mod Bike", width=15, padding=(35, 15),
+                         command=lambda: controller.show_page(ModBikePage)) 
+        btn3.grid(row=2, column=0, pady=5)
+
+        btn4 = ttk.Button(frame, text="Mod Land Use", width=15,padding=(35, 15), 
+                          command=lambda: controller.show_page(ScoreModsPage))
+        btn4.grid(row=2, column=1, pady=5)
+
+        back_button = ttk.Button(frame, text="🠜 Go Back", width=7,padding=(20, 15), command=lambda: controller.show_page(MainMenu))
+
+        back_button.grid(row=3, column=0,columnspan=2,  padx=5, pady=5, sticky="ew")
+
+# ====================== SCORE MODS PAGE CLASS ======================
+class ModBikePage(BasePage):
+    def __init__(self, parent, controller):
+        super().__init__(parent, controller)
+        
+        frame = ttk.LabelFrame(self, text='3 Mod Bikes',  padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="both", expand="yes")
+
+        score_desc = '''Modify a copy of our baseline NetworkDataset with the candidate for improvement for bicycle projects.\n\nSet the scenario name and improvement type in the cell below before running the script.\n\nRun the script, ArcGIS Pro will launch.\n\nIMPORTANT: When you are done making your edits, leave the edited feature selected.\n\nRemember to save your edits and the project when you are finished'''
+        desc_label = ttk.Label(frame, text=score_desc)
+        desc_label.grid(row=0, column=0, columnspan=2, pady=5)
+
+        back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
+        run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config['mod_bike']))
+
+        back_button.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
+        run_button.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        
+        # Output text box
+        self.text_frame = tk.Frame(frame)
+        self.text_frame.grid(row=2, column=0, columnspan=2,  sticky="nsew", padx=10, pady=10)
+
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)
+        self.text_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.text_output.config(yscrollcommand=self.scrollbar.set)
+
+        # Make sure rows resize properly
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+        frame.rowconfigure(2, weight=1)  # Allow text widget to expand
+
+        # Redirect stdout to Text widget
+        
 
 
-    
 
+
+# ====================== MAIN APPLICATION START ======================
 if __name__ == "__main__":
     root = tk.Tk()
     app = MyApp(root)

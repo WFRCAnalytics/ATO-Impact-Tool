@@ -3,6 +3,7 @@
 In this notebook a copy of our baseline NetworkDataset is made to be modified reflecting the candidate improvement for bicycle projects.
 
 To use this notebook, set the scenario name and improvement type in the cell below. Then, run the first three cells, the appropriate cells for the improvement, and save your changes.'''
+print('--begin mod bike')
 
 import sys
 import os
@@ -34,7 +35,7 @@ target_gdb =  os.path.join(base_path, "scenario", mode, scenario_name + ".gdb")
 
 def  prepare_bike_network():
     
-
+    print('--preparing template network')
     # create scenario file geodatabase from template
 
     # if target gdb exists, delete it
@@ -64,7 +65,7 @@ def  prepare_bike_network():
     time.sleep(10)
 
     # Restart the script to zip the GDBs in a new process
-    subprocess.Popen([sys.executable] + sys.argv + ["edit"], close_fds=True)
+    subprocess.Popen([sys.executable, '-u'] + sys.argv + ["edit"], close_fds=True)
 
     # Exit the current script to ensure it stops completely
     sys.exit()
@@ -107,6 +108,7 @@ def modify_bike_network():
 
     # SET ATTRIBUTES FOR NEW FEATURE
     # Highlight new feature and run this cell
+    print('--calculating attributes for new feature')
     if int(arcpy.management.GetCount(bpa)[0]) < 5:
         arcpy.management.CalculateField(bpa, "Name", "'" + scenario_name + "'", "PYTHON3", None, "DOUBLE")
         arcpy.management.CalculateField(bpa, "Length_Miles", '!shape.length@miles!', "PYTHON3", None, "DOUBLE")
@@ -179,6 +181,7 @@ def modify_bike_network():
         
 
     # Build the dataset
+    print('--building the modified network')
     nd = os.path.join(target_gdb, r"NetworkDataset\NetworkDataset_ND")
     arcpy.CheckOutExtension("Network")
     ato.build(nd)
