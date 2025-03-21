@@ -3,37 +3,51 @@
 In this notebook a copy of our baseline NetworkDataset is made to be modified reflecting the candidate improvement for bicycle projects.
 
 To use this notebook, set the scenario name and improvement type in the cell below. Then, run the first three cells, the appropriate cells for the improvement, and save your changes.'''
-print('--begin mod bike')
+
 
 import sys
+if not "edit" in sys.argv:
+    print('--begin mod bike' )
+
 import os
 import arcpy
 import shutil
 import subprocess
 import time
-
-
-base_path = os.path.abspath(".")
-# src = os.path.join(base_path, 'src')
-# if src not in sys.path:
-#     sys.path.append(src)
-
+import yaml
 from src.ato_tools import ato
 
+arcpy.env.overwriteOutput = True
+arcpy.env.parallelProcessingFactor = "90%"
+
+def load_yaml(file_path):
+    with open(file_path, 'r') as file:
+        return yaml.safe_load(file)
+
+base_path = os.path.abspath(".")
 aprx_path = os.path.realpath("ato.aprx")
 
 # get this from an argument in the gui
-scenario_name = "test_buffered_bike_lane" # e.g. "4700_south_bike_lane"
-facility_type = "buffered_bike_lane"
+# scenario_name = "test_buffered_bike_lane" # e.g. "4700_south_bike_lane"
+# facility_type = "buffered_bike_lane"
+global entry_value
+global combo_value
+if len(sys.argv) < 3:
+    print("Error: Missing arguments. Provide both entry and combobox values.")
+    sys.exit(1)
+else:
+    entry_value = sys.argv[1]
+    combo_value = sys.argv[2]
 
 mode = "Cycling"
-target_gdb =  os.path.join(base_path, "scenario", mode, scenario_name + ".gdb")
+target_gdb =  os.path.join(base_path, "scenario", mode, entry_value + ".gdb")
+layer_name = 'BPA'
 
 #######################
-# prepare bike network
+# prepare template network
 #######################
 
-def  prepare_bike_network():
+def  prepare_network():
     
     print('--preparing template network')
     # create scenario file geodatabase from template
@@ -47,39 +61,48 @@ def  prepare_bike_network():
 
     arcpy.env.workspace = target_gdb
 
-    #================================================
-    # make sure this gets added to the pro project
-    #================================================
-
     # Open the ArcGIS Pro project
     aprx = arcpy.mp.ArcGISProject(aprx_path)
     map_name = "Map"
-    m = aprx.listMaps(map_name)[0]
-    layer = m.addDataFromPath(os.path.join(target_gdb, r"NetworkDataset\BikePedAuto"))
-    layer.name = 'BPA'
-    # Add BikePedAuto layer to map for editing
+    map_obj = aprx.listMaps(map_name)[0]
 
+    # clear layers
+    layers_to_keep = ["World Topographic Map", "World Hillshade"]
+    for lyr in reversed(map_obj.listLayers()):
+        if lyr.name not in layers_to_keep:
+            map_obj.removeLayer(lyr)
+
+    # Add BikePedAuto layer to map for editing
+    layer = map_obj.addDataFromPath(os.path.join(target_gdb, r"NetworkDataset\BikePedAuto"))
+    layer.name = layer_name
+
+    # save and remove the project from the namespace
     aprx.save()
-    # aprx  = None
-    del aprx, m
+    del aprx, map_obj
     time.sleep(10)
 
-    # Restart the script to zip the GDBs in a new process
+    # Restart the script in a new process so that any locks are released 
     subprocess.Popen([sys.executable, '-u'] + sys.argv + ["edit"], close_fds=True)
 
     # Exit the current script to ensure it stops completely
     sys.exit()
 
 #######################
-# modify bike network
+# modify  network
 #######################
 
-def modify_bike_network():
+def modify_network():
 
     # launch arcgis pro
-    print('opening arcgis pro...')
-    print('Remember to save edits, leave new/edited features selected, and save project')
-    subprocess.run([r"C:\Program Files\ArcGIS\Pro\bin\ArcGISPro.exe", aprx_path], check=True)
+    config = load_yaml('0_config.yaml')
+    arcgis_pro = config['arcgis_pro']   
+    print('--opening arcgis pro...')
+    print('--Remember to save edits, leave new/edited features selected, and save project')
+    try:
+        subprocess.run([arcgis_pro, aprx_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to open ArcGIS Pro: {e}", "error")
+        return
     
     # Make Edits
     '''**Follow the instructions below for the appropriate section to make edits**
@@ -96,21 +119,20 @@ def modify_bike_network():
     # resume after arcgis pro closes
     #================================
 
-    print('arcgis pro closed, resuming script')
+    print('--arcgis pro closed, resuming script')
     bpa = arcpy.management.MakeFeatureLayer(  os.path.join(target_gdb, r"NetworkDataset\BikePedAuto"),  "BPA")
 
     # Open the ArcGIS Pro project
     aprx = arcpy.mp.ArcGISProject(aprx_path)
     map_name = "Map"
     m = aprx.listMaps(map_name)[0]
-    layer_name = "BPA"
     bpa = m.listLayers(layer_name)[0]
 
     # SET ATTRIBUTES FOR NEW FEATURE
     # Highlight new feature and run this cell
     print('--calculating attributes for new feature')
     if int(arcpy.management.GetCount(bpa)[0]) < 5:
-        arcpy.management.CalculateField(bpa, "Name", "'" + scenario_name + "'", "PYTHON3", None, "DOUBLE")
+        arcpy.management.CalculateField(bpa, "Name", "'" + entry_value + "'", "PYTHON3", None, "DOUBLE")
         arcpy.management.CalculateField(bpa, "Length_Miles", '!shape.length@miles!', "PYTHON3", None, "DOUBLE")
         arcpy.management.CalculateField(bpa, "PedestrianTime", '!Length_Miles! / (3 / 60)', "PYTHON3", None, "DOUBLE")
         arcpy.management.CalculateField(bpa, "BikeTime", '!Length_Miles! / (11 / 60)', "PYTHON3", None, "DOUBLE")
@@ -118,7 +140,7 @@ def modify_bike_network():
         arcpy.management.CalculateField(bpa, "BikeNetwork", "'Y'", "PYTHON3", None, "DOUBLE")
         arcpy.management.CalculateField(bpa, "PedNetwork", "'Y'", "PYTHON3", None, "DOUBLE")
     else:
-        print("Error: operation will affect more than 5 features. Did you select only the new bike facility(s)?")
+        print("--Error: operation will affect more than 5 features. Did you select only the new bike facility(s)?")
 
     ## All Features (New & Existing)
 
@@ -137,14 +159,14 @@ def modify_bike_network():
     }
 
     if int(arcpy.management.GetCount(bpa)[0]) < 50:
-        multiplier = length_multipliers[facility_type]
+        multiplier = length_multipliers[combo_value]
         
         # for bike lanes, determine the max aadt. If > 10k, set mutiple to 0.9
         # rather than 0.3
-        if facility_type == "bike_lane":
+        if combo_value == "bike_lane":
             max_aadt = max([row[0] for row in arcpy.da.SearchCursor(bpa, "AADT")])
             if max_aadt > 15000:
-                print('Maximum AADT is {}. Length multiple set to 0.9'.format(max_aadt))
+                print('--Maximum AADT is {}. Length multiple set to 0.9'.format(max_aadt))
                 multiplier = 0.9
         
         arcpy.management.CalculateField(
@@ -160,7 +182,7 @@ def modify_bike_network():
 
 
     else:
-        print("Warning: operation will affect " + 
+        print("--Warning: operation will affect " + 
             arcpy.management.GetCount(bpa)[0] + 
             " features - did you select only the intended target?")
 
@@ -180,7 +202,7 @@ def modify_bike_network():
     del aprx
         
 
-    # Build the dataset
+    # build the newly created network dataset
     print('--building the modified network')
     nd = os.path.join(target_gdb, r"NetworkDataset\NetworkDataset_ND")
     arcpy.CheckOutExtension("Network")
@@ -192,20 +214,17 @@ def modify_bike_network():
 ###################
 # MAIN
 ###################
-
-if len(sys.argv) > 1 and sys.argv[1] == "edit":
-    print('--begin editing')
-    modify_bike_network()
-    print('--scripts finished')
-else:
-    print('--begin prep script')
-    prepare_bike_network()
+def main():
+    if "edit" in sys.argv:
+        print('--begin editing')
+        modify_network()
+        print('--scripts finished')
+    else:
+        print('--begin scenario network prep')
+        prepare_network()
     
-
-
-#============================================================================
-# add scenarios as many times as the user needs to (rerun/click the button)
-#============================================================================
+if __name__ == "__main__":
+    main()
 
 
 

@@ -7,6 +7,7 @@ import subprocess
 import threading
 import sys
 from tkinter import ttk
+import webbrowser
 
 # Load YAML configuration
 def load_yaml(file_path):
@@ -14,6 +15,11 @@ def load_yaml(file_path):
         return yaml.safe_load(file)
 
 config = load_yaml('0_config.yaml')  # Load config
+
+def open_help_link():
+    url = "https://docs.google.com/presentation/d/1GKsw4e6UGEFhFP3W1ZAoSSxLRf7SaCxO06ve7mZ2mEY"  # Replace with your actual URL
+    webbrowser.open_new_tab(url)
+
 
 # Redirect console output to a text widget
 class RedirectText:
@@ -62,13 +68,21 @@ class BasePage(tk.Frame):
                     bufsize=1
                 )
 
-                # Read output line-by-line and update the text widget
-                for line in iter(process.stdout.readline, ''):
-                    sys.stdout.write(line)  # Write directly to redirected stdout
-                    sys.stdout.flush()  # Force immediate UI update
+                # Redirect both stdout and stderr to the text widget
+                def read_stream(stream, tag):
+                    for line in iter(stream.readline, ''):
+                        self.text_output.insert(tk.END, line, tag)  # Insert into text widget
+                        self.text_output.see(tk.END)  # Auto-scroll to latest output
+                        stream.flush()
 
-                for err in iter(process.stderr.readline, ''):
-                    sys.stderr.write(err)  # Write directly to stderr
+                stdout_thread = threading.Thread(target=read_stream, args=(process.stdout, "stdout"))
+                stderr_thread = threading.Thread(target=read_stream, args=(process.stderr, "stderr"))
+
+                stdout_thread.start()
+                stderr_thread.start()
+
+                stdout_thread.join()
+                stderr_thread.join()
 
                 process.stdout.close()
                 process.stderr.close()
@@ -77,18 +91,87 @@ class BasePage(tk.Frame):
                 messagebox.showinfo("Success", "Script finished successfully!")
 
             except Exception as e:
-                sys.stderr.write(f"Error: {e}\n")
+                error_msg = f"Error: {e}\n"
+                self.text_output.insert(tk.END, error_msg, "stderr")  # Show error in text widget
                 messagebox.showerror("Error", f"Failed to launch script:\n{e}")
 
+        # Start the script in a separate thread to avoid blocking the UI
         thread = threading.Thread(target=run, daemon=True)
         thread.start()
+
+        # Add color tags for stdout and stderr
+        self.text_output.tag_config("stdout", foreground="black")
+        self.text_output.tag_config("stderr", foreground="red")  # Errors in red
+
+    def launch_script_mod(self, script_path, myEntry, myCombobox):
+        """Launches an external script and redirects its output to the text widget."""
+        if not os.path.exists(script_path):
+            messagebox.showerror("Error", f"Script file not found: {script_path}")
+            return
+
+        def run():
+            try:
+                pythonw_path = config.get('pythonw', sys.executable)  # Use default Python if not specified
+                
+                entry_value  = myEntry.get()
+                combo_value  = myCombobox.get()
+
+                if not entry_value or not combo_value:
+                    print("Please enter all fields before launching the script.")
+                    return
+                
+                process = subprocess.Popen(
+                    [pythonw_path, '-u', script_path, entry_value, combo_value], 
+                    stdout=subprocess.PIPE, 
+                    stderr=subprocess.PIPE,
+                    text=True, 
+                    bufsize=1
+                )
+
+                # Redirect both stdout and stderr to the text widget
+                def read_stream(stream, tag):
+                    for line in iter(stream.readline, ''):
+                        self.text_output.insert(tk.END, line, tag)  # Insert into text widget
+                        self.text_output.see(tk.END)  # Auto-scroll to latest output
+                        stream.flush()
+
+                stdout_thread = threading.Thread(target=read_stream, args=(process.stdout, "stdout"))
+                stderr_thread = threading.Thread(target=read_stream, args=(process.stderr, "stderr"))
+
+                stdout_thread.start()
+                stderr_thread.start()
+
+                stdout_thread.join()
+                stderr_thread.join()
+
+                process.stdout.close()
+                process.stderr.close()
+                process.wait()
+
+                messagebox.showinfo("Success", "Script finished successfully!")
+
+            except Exception as e:
+                error_msg = f"Error: {e}\n"
+                self.text_output.insert(tk.END, error_msg, "stderr")  # Show error in text widget
+                messagebox.showerror("Error", f"Failed to launch script:\n{e}")
+
+        # Start the script in a separate thread to avoid blocking the UI
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+
+        # Add color tags for stdout and stderr
+        self.text_output.tag_config("stdout", foreground="black")
+        self.text_output.tag_config("stderr", foreground="red")  # Errors in red
+        
 
 # ====================== MAIN APPLICATION CLASS ======================
 class MyApp:
     def __init__(self, root):
         self.root = root
         self.root.title("ATO Impact Tool")
-        self.root.geometry("480x500")
+        height = 600
+        width = 550
+        self.root.geometry(f"{width}x{height}")
         
         # set the gui style
         style = ttk.Style()
@@ -100,14 +183,19 @@ class MyApp:
 
         # File menu
         file_menu = Menu(menu_bar, tearoff=0)
-        file_menu.add_command(label="Open", command=self.open_file)
         file_menu.add_command(label="Exit", command=root.quit)
         menu_bar.add_cascade(label="File", menu=file_menu)
+        
 
         # Settings menu
         setup_menu = Menu(menu_bar, tearoff=0)
-        setup_menu.add_command(label="Edit config file", command=self.open_config_file)
+        setup_menu.add_command(label="Edit configurations", command=self.open_config_file)
         menu_bar.add_cascade(label="Settings", menu=setup_menu)
+
+        info_menu = Menu(menu_bar, tearoff=0)
+        info_menu.add_command(label="Help", command=open_help_link)
+        info_menu.add_command(label="About", command=None)
+        menu_bar.add_cascade(label="Info", menu=info_menu)
 
         # ===================== PAGE CONTAINER =====================
         self.container = tk.Frame(root)
@@ -117,7 +205,7 @@ class MyApp:
         self.pages = {}
 
         # Create pages
-        for Page in (MainMenu, NetworkSetupPage, TazSetupPage, ModProjectsPage, ModBikePage, ScoreModsPage):
+        for Page in (MainMenu, NetworkSetupPage, TazSetupPage, ModProjectsPage, ModDrivePage, ModBikePage, ScoreModsPage):
             page_instance = Page(self.container, self)
             self.pages[Page] = page_instance
             page_instance.grid(row=0, column=0, sticky="nsew")
@@ -143,39 +231,48 @@ class MyApp:
         try:
             if os.name == 'nt':  # Windows
                 os.startfile(filepath)
-            elif os.name == 'posix':  # macOS & Linux
-                subprocess.run(["xdg-open", filepath], check=True)
         except Exception as e:
             print(f"Error opening file: {e}")
 
-# ====================== MAIN MENU CLASS ======================
+# ====================== MAIN MENU PAGE CLASS ======================
+
 class MainMenu(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
+        header_text = 'Main Menu'
+
+        style = ttk.Style()
+        style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
+        
+        # Create LabelFrame with reduced width settings
+        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
+        frame.config(width=550)  
+        
         # Left frame with buttons
-        left_frame = tk.Frame(self)
+        left_frame = ttk.Frame(frame)
         left_frame.grid(row=0, column=0, sticky="n", padx=10, pady=10)
 
         # Create buttons
-        btn1 = ttk.Button(left_frame, text="1 Network Setup", width=15,  padding=(35, 15),
+        btn1 = ttk.Button(left_frame, text="1) Network Setup", width=20,  padding=(35, 15),
                          command=lambda: controller.show_page(NetworkSetupPage))
         btn1.grid(row=0, column=0, pady=5)
 
-        btn2 = ttk.Button(left_frame, text="2 TAZ Setup", width=15,  padding=(35, 15),
+        btn2 = ttk.Button(left_frame, text="2) TAZ Setup", width=20,  padding=(35, 15),
                          command=lambda: controller.show_page(TazSetupPage))
         btn2.grid(row=1, column=0, pady=5)
 
-        btn3 = ttk.Button(left_frame, text="3 Mod Projects", width=15, padding=(35, 15),
+        btn3 = ttk.Button(left_frame, text="3) Mod Projects", width=20, padding=(35, 15),
                          command=lambda: controller.show_page(ModProjectsPage))
         btn3.grid(row=2, column=0, pady=5)
 
-        btn4 = ttk.Button(left_frame, text="4 Score Projects", width=15,padding=(35, 15), 
+        btn4 = ttk.Button(left_frame, text="4) Score Projects", width=20,padding=(35, 15), 
                           command=lambda: controller.show_page(ScoreModsPage))
         btn4.grid(row=3, column=0, pady=5)
 
         # Right frame for image
-        self.right_frame = tk.Frame(self)
+        self.right_frame = ttk.Frame(frame)
         self.right_frame.grid(row=0, column=1, padx=20)
 
         # Load image
@@ -199,37 +296,52 @@ class MainMenu(tk.Frame):
             print(f"Error loading image: {e}")
 
 # ====================== NETWORK SETUP PAGE CLASS ======================
+
 class NetworkSetupPage(BasePage):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
-        
-        frame = ttk.LabelFrame(self, text='1 Network Setup', padding=(10, 10))
-        frame.pack(padx=10, pady=10, fill="both", expand="yes")
 
-        desc_label = ttk.Label(frame, text="This script prepares the Network Dataset datasets used for all ATO calculations.")
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5)
+        header_text = '1) Network Setup'
+        description_text = "This script prepares the Network Dataset datasets used for all ATO calculations."
+        script_name = 'network_setup'
 
+        style = ttk.Style()
+        style.configure("Custom.TLabelframe.Label", font=("Arial", 12, "bold"), foreground="black")
+
+        # Create LabelFrame with reduced width settings
+        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
+        frame.config(width=550)  
+
+        # Description label with wrapping to avoid excessive width
+        desc_label = ttk.Label(frame, text=description_text, wraplength=525)  # Prevents it from stretching too wide
+        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
+
+        # Navigation buttons with fixed width to prevent excessive stretching
         back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
-        run_button = ttk.Button(frame, text="Run Script!", command=lambda: self.launch_script(config['network_setup']))
+        run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config[script_name]))
+        
+        back_button.grid(row=3, column=0, padx=5, pady=5, sticky="w")  # No "sticky" to prevent full row stretch
+        run_button.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        
+        back_button.config(width=15)  # Set a fixed width
+        run_button.config(width=20)  # Set a fixed width
 
-        back_button.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
-        run_button.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
-
-        # Output text box
+        # Output text box inside a small frame
         self.text_frame = tk.Frame(frame)
-        self.text_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
+        self.text_frame.grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=10)  # Prevent full stretch
 
-        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)
-        self.text_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=40)  # Reduce width from 50 to 30
+        self.text_output.pack(side=tk.LEFT, fill=tk.Y)  # No full horizontal expansion
 
         self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.text_output.config(yscrollcommand=self.scrollbar.set)
 
-        # Make sure rows resize properly
-        frame.columnconfigure(0, weight=1)
-        frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(2, weight=1)  # Allow text widget to expand
+        # Prevent frame columns from stretching too much
+        frame.columnconfigure(0, weight=0)
+        frame.columnconfigure(1, weight=0)
+        frame.rowconfigure(2, weight=0)  # Prevent text widget from taking too much space
 
         # Redirect stdout to this page's text widget
         self.setup_output_widget(self.text_output)
@@ -238,42 +350,51 @@ class NetworkSetupPage(BasePage):
 class TazSetupPage(BasePage):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
+
+        header_text = '2) TAZ Setup'
+        description_text = "This script prepares the TAZ dataset used for all ATO calculations."
+        script_name = 'taz_setup'
         
-        frame = ttk.LabelFrame(self, text='2 TAZ Setup',  padding=(10, 10))
-        frame.pack(padx=10, pady=10, fill="both", expand="yes")
+        style = ttk.Style()
+        style.configure("Custom.TLabelframe.Label", font=("Arial", 12, "bold"), foreground="black")
+        
+        # Create LabelFrame with reduced width settings
+        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
+        frame.config(width=550)  
 
-        desc_label = ttk.Label(frame, text="This script prepares the TAZ dataset used for all ATO calculations.")
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5)
+        # Description label with wrapping to avoid excessive width
+        desc_label = ttk.Label(frame, text=description_text, wraplength=525)  # Prevents it from stretching too wide
+        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
 
+        # Navigation buttons with fixed width to prevent excessive stretching
         back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
-        run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config['taz_setup']))
-
-        back_button.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
-        run_button.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config[script_name]))
         
-        # Output text box
-        self.text_frame = tk.Frame(frame)
-        self.text_frame.grid(row=2, column=0, columnspan=2,  sticky="nsew", padx=10, pady=10)
+        back_button.grid(row=3, column=0, padx=5, pady=5, sticky="w")  # No "sticky" to prevent full row stretch
+        run_button.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        
+        back_button.config(width=15)  # Set a fixed width
+        run_button.config(width=20)  # Set a fixed width
 
-        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)
-        self.text_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Output text box inside a small frame
+        self.text_frame = tk.Frame(frame)
+        self.text_frame.grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=10)  # Prevent full stretch
+
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=40)  # Reduce width from 50 to 30
+        self.text_output.pack(side=tk.LEFT, fill=tk.Y)  # No full horizontal expansion
 
         self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.text_output.config(yscrollcommand=self.scrollbar.set)
 
-        # Make sure rows resize properly
-        frame.columnconfigure(0, weight=1)
-        frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(2, weight=1)  # Allow text widget to expand
+        # Prevent frame columns from stretching too much
+        frame.columnconfigure(0, weight=0)
+        frame.columnconfigure(1, weight=0)
+        frame.rowconfigure(2, weight=0)  # Prevent text widget from taking too much space
 
-        # Redirect stdout to Text widget
-        
-        
-        
-        # back_button.pack()
-        # continue_button.pack()
-        # self.text_frame.pack()
+        # Redirect stdout to this page's text widget
+        self.setup_output_widget(self.text_output)
 
     
 
@@ -281,37 +402,52 @@ class TazSetupPage(BasePage):
 class ScoreModsPage(BasePage):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
+
+        header_text = '4) Score Mods'
+        description_text = '''This script scores the configured scenarios.\n\nAny unscored scenarios will be scored.\n\nTo re-score a scenario, open its corresponding file \ngeodatabaseand delete its "scores" and "scores_summary" table. '''
+        script_name = 'score'
         
-        frame = ttk.LabelFrame(self, text='4 Score Mods',  padding=(10, 10))
-        frame.pack(padx=10, pady=10, fill="both", expand="yes")
+        style = ttk.Style()
+        style.configure("Custom.TLabelframe.Label", font=("Arial", 12, "bold"), foreground="black")
+        
+        # Create LabelFrame with reduced width settings
+        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
+        frame.config(width=550)  
 
-        score_desc = '''This script scores the configured scenarios.\n\nAny unscored scenarios will be scored.\n\nTo re-score a scenario, open its corresponding file \ngeodatabaseand delete its "scores" and "scores_summary" table. '''
-        desc_label = ttk.Label(frame, text=score_desc)
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5)
+        # Description label with wrapping to avoid excessive width
+        desc_label = ttk.Label(frame, text=description_text, wraplength=525)  # Prevents it from stretching too wide
+        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
 
+        # Navigation buttons with fixed width to prevent excessive stretching
         back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
-        run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config['taz_setup']))
-
-        back_button.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
-        run_button.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        back_button.config(width=15)  # Set a fixed width
+        back_button.grid(row=3, column=0, padx=5, pady=5, sticky="w")  # No "sticky" to prevent full row stretch
         
-        # Output text box
+        # run button
+        run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config[script_name]))
+        run_button.config(width=20)  # Set a fixed width
+        run_button.grid(row=1, column=0, padx=5, pady=5, sticky="w")
+        
+        
+        # Output text box inside a small frame
         self.text_frame = tk.Frame(frame)
-        self.text_frame.grid(row=2, column=0, columnspan=2,  sticky="nsew", padx=10, pady=10)
+        self.text_frame.grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=10)  # Prevent full stretch
 
-        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)
-        self.text_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=40)  # Reduce width from 50 to 30
+        self.text_output.pack(side=tk.LEFT, fill=tk.Y)  # No full horizontal expansion
 
         self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
         self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.text_output.config(yscrollcommand=self.scrollbar.set)
 
-        # Make sure rows resize properly
-        frame.columnconfigure(0, weight=1)
-        frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(2, weight=1)  # Allow text widget to expand
+        # Prevent frame columns from stretching too much
+        frame.columnconfigure(0, weight=0)
+        frame.columnconfigure(1, weight=0)
+        frame.rowconfigure(2, weight=0)  # Prevent text widget from taking too much space
 
-        # Redirect stdout to Text widget
+        # Redirect stdout to this page's text widget
+        self.setup_output_widget(self.text_output)
         
         
 #======================== MOD PROJECTS PAGE ==========================
@@ -320,59 +456,97 @@ class ModProjectsPage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
-        frame = ttk.LabelFrame(self, text='3 Mod Projects',  padding=(10, 10))
-        frame.pack(padx=10, pady=10, fill="both", expand="yes")
+        header_text = '3) Mod Projects'
+        description_text = '''Select which type of modification to add (Drive, Transit, Bike, Land Use).\n\nOnce all of the desired mods are created, use the fourth script in the Main Menu to score them all at once.'''
 
-        mod_desc = '''Select which type of modification you wish to add (Drive, Transit, Bike, Land Use)\n\nAll modifications will be scored at once in the final script'''
-        desc_label = ttk.Label(frame, text=mod_desc)
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5)
+        style = ttk.Style()
+        style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
+        
+        # Create LabelFrame with reduced width settings
+        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
+        frame.config(width=550)  
+    
+        desc_label = ttk.Label(frame, text=description_text, wraplength=500)
+        desc_label.grid(row=0, column=0, columnspan=2, pady=10, sticky="w")
 
-        # # frame with buttons
-        # frame = tk.Frame(self)
-        # frame.grid(row=0, column=0, sticky="n", padx=10, pady=10)
+        button_frame = ttk.LabelFrame(frame, text='Select a Mod Type:',  padding=(15, 15))
+        button_frame.grid(row=1, column=0, pady=5, sticky="w")
+        button_frame.config(width=550)  
 
         # Create buttons
-        btn1 = ttk.Button(frame, text="Mod Drive", width=15,  padding=(35, 15),
-                         command=lambda: controller.show_page(NetworkSetupPage))
-        btn1.grid(row=1, column=0, pady=5)
+        btn1 = ttk.Button(button_frame, text="A) Mod Drive", width=20,  padding=(35, 15),
+                         command=lambda: controller.show_page(ModDrivePage))
+        btn1.grid(row=1, column=0, padx=5, pady=5, sticky='w')
 
-        btn2 = ttk.Button(frame, text="Mod Transit", width=15,  padding=(35, 15),
+        btn2 = ttk.Button(button_frame, text="B) Mod Transit", width=20,  padding=(35, 15),
                          command=lambda: controller.show_page(TazSetupPage))
-        btn2.grid(row=1, column=1, pady=5)
+        btn2.grid(row=2, column=0, padx=5, pady=5, sticky='w')
 
-        btn3 = ttk.Button(frame, text="Mod Bike", width=15, padding=(35, 15),
+        btn3 = ttk.Button(button_frame, text="C) Mod Bike", width=20, padding=(35, 15),
                          command=lambda: controller.show_page(ModBikePage)) 
-        btn3.grid(row=2, column=0, pady=5)
+        btn3.grid(row=3, column=0, padx=5, pady=5, sticky='w')
 
-        btn4 = ttk.Button(frame, text="Mod Land Use", width=15,padding=(35, 15), 
+        btn4 = ttk.Button(button_frame, text="D) Mod Land Use", width=20,padding=(35, 15), 
                           command=lambda: controller.show_page(ScoreModsPage))
-        btn4.grid(row=2, column=1, pady=5)
+        btn4.grid(row=4, column=0, padx=5, pady=5, sticky='w')
 
-        back_button = ttk.Button(frame, text="🠜 Go Back", width=7,padding=(20, 15), command=lambda: controller.show_page(MainMenu))
+        back_button = ttk.Button(frame, text="🠜 Go Back", width=10,padding=(5, 5), command=lambda: controller.show_page(MainMenu))
+        back_button.config(width=15)  
+        back_button.grid(row=5, column=0,  padx=5, pady=5, sticky="w")
 
-        back_button.grid(row=3, column=0,columnspan=2,  padx=5, pady=5, sticky="ew")
 
-# ====================== SCORE MODS PAGE CLASS ======================
-class ModBikePage(BasePage):
+# ====================== MOD DRIVE PAGE CLASS ======================
+class ModDrivePage(BasePage):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
         
-        frame = ttk.LabelFrame(self, text='3 Mod Bikes',  padding=(10, 10))
-        frame.pack(padx=10, pady=10, fill="both", expand="yes")
+        
+        header_text = '3A) Mod Drive'
+        description_text = '''Modify a copy of the baseline NetworkDataset with the candidate for improvement for road projects.\n\n1. Set the scenario name in the cell below before running the script.\n\n2. Run the script, ArcGIS Pro will launch.\n\n3. IMPORTANT: When you are done making your edits, leave the edited feature selected.\n\n4. Remember to save your edits and the project when you are finished'''
+        script_name = 'mod_drive'
 
-        score_desc = '''Modify a copy of our baseline NetworkDataset with the candidate for improvement for bicycle projects.\n\nSet the scenario name and improvement type in the cell below before running the script.\n\nRun the script, ArcGIS Pro will launch.\n\nIMPORTANT: When you are done making your edits, leave the edited feature selected.\n\nRemember to save your edits and the project when you are finished'''
-        desc_label = ttk.Label(frame, text=score_desc)
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5)
+        style = ttk.Style()
+        style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
+        
+        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe",  padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="x")
+        frame.config(width=550) 
+        
+        desc_label = ttk.Label(frame, text=description_text, wraplength=525)
+        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky='w')
 
-        back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
-        run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config['mod_bike']))
+        # User input frame
+        input_frame = ttk.LabelFrame(frame, padding=(5, 5))
+        input_frame.grid(row=1, column=0, pady=5, sticky='w')
 
-        back_button.grid(row=1, column=0, padx=5, pady=5, sticky="ew")
-        run_button.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
+        # Scenario Name Label
+        entry_label = ttk.Label(input_frame, text="Scenario Name:")
+        entry_label.grid(row=0, column=0, pady=5, sticky='w')
+
+        # Scenario Name Entry Widget
+        user_input = ttk.Entry(input_frame, width=30)
+        user_input.grid(row=0, column=1, pady=5, sticky='w')
+
+        # Mod Type
+        dropdown_label = ttk.Label(input_frame, text="Modification Type:")
+        dropdown_label.grid(row=1, column=0, pady=5, sticky='w')
+
+        # Options for the dropdown
+        options = ["New Construction", "Widening | Restripe", "Operational", "New Interchange", "Grade-separated Crossing"]
+
+        # Create the dropdown menu
+        dropdown = ttk.Combobox(input_frame, values=options, width=30)
+        dropdown.grid(row=1, column=1, pady=5, sticky='w')
+
+        # run button
+        run_button = ttk.Button(input_frame, text="Run Script 🠞", command=lambda: self.launch_script_mod(config['mod_drive'], user_input, dropdown))
+        run_button.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky="w")
+        run_button.config(width=20)  # Set a fixed width
         
         # Output text box
         self.text_frame = tk.Frame(frame)
-        self.text_frame.grid(row=2, column=0, columnspan=2,  sticky="nsew", padx=10, pady=10)
+        self.text_frame.grid(row=3, column=0, columnspan=2,  sticky="nsew", padx=10, pady=10)
 
         self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)
         self.text_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -387,8 +561,85 @@ class ModBikePage(BasePage):
         frame.rowconfigure(2, weight=1)  # Allow text widget to expand
 
         # Redirect stdout to Text widget
-        
+        back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(ModProjectsPage))
+        back_button.config(width=15)  # Set a fixed width
+        back_button.grid(row=4, column=0, padx=5, pady=5, sticky="w")
 
+
+
+
+
+# ====================== MOD BIKE PAGE CLASS ======================
+class ModBikePage(BasePage):
+    def __init__(self, parent, controller):
+        super().__init__(parent, controller)
+        
+        
+        header_text = '3C) Mod Bike'
+        description_text = '''Modify a copy of the baseline NetworkDataset with the candidate for improvement for bicycle projects.\n\n1. Set the scenario name and improvement type in the cell below before running the script.\n\n2. Run the script, ArcGIS Pro will launch.\n\n3. IMPORTANT: When you are done making your edits, leave the edited feature selected.\n\n4. Remember to save your edits and the project when you are finished'''
+        script_name = 'mod_bike'
+        
+        style = ttk.Style()
+        style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
+        
+        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe",  padding=(10, 10))
+        frame.pack(padx=10, pady=10, fill="x")
+        frame.config(width=550) 
+        
+        desc_label = ttk.Label(frame, text=description_text, wraplength=525)
+        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky='w')
+
+        # User input frame
+        input_frame = ttk.LabelFrame(frame, padding=(5, 5))
+        input_frame.grid(row=1, column=0, pady=5, sticky='w')
+
+        # Scenario Name Label
+        entry_label = ttk.Label(input_frame, text="Scenario Name:")
+        entry_label.grid(row=0, column=0, pady=5, sticky='w')
+
+        # Scenario Name Entry Widget
+        user_input = ttk.Entry(input_frame, width=30)
+        user_input.grid(row=0, column=1, pady=5, sticky='w')
+
+        # Facility Type
+        dropdown_label = ttk.Label(input_frame, text="Bike Facility Type:")
+        dropdown_label.grid(row=1, column=0, pady=5, sticky='w')
+
+
+        # Options for the dropdown
+        options = ["shared_lane", "shoulder_bikeway", "bike_lane", "buffered_bike_lane", "protected_bike_lane", "bike_blvd", "shared_use_path"]
+
+    
+        # Create the dropdown menu
+        dropdown = ttk.Combobox(input_frame, values=options, width=30)
+        dropdown.grid(row=1, column=1, pady=5, sticky='w')
+
+        # run button
+        run_button = ttk.Button(input_frame, text="Run Script 🠞", command=lambda: self.launch_script_mod(config[script_name], user_input, dropdown))
+        run_button.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="w")
+        run_button.config(width=20)
+        
+        # Output text box
+        self.text_frame = tk.Frame(frame)
+        self.text_frame.grid(row=3, column=0, columnspan=2,  sticky="nsew", padx=10, pady=10)
+
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)
+        self.text_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.text_output.config(yscrollcommand=self.scrollbar.set)
+
+        # Make sure rows resize properly
+        frame.columnconfigure(0, weight=1)
+        frame.columnconfigure(1, weight=1)
+        frame.rowconfigure(2, weight=1)  # Allow text widget to expand
+
+        # Redirect stdout to Text widget
+        back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(ModProjectsPage))
+        back_button.config(width=15)  # Set a fixed width
+        back_button.grid(row=4, column=0, padx=5, pady=5, sticky="w")
+        
 
 
 

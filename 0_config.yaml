@@ -1,8 +1,17 @@
+######################################################
+# REMEMBER TO INCLUDE 2 SLASHES IF REPLACING PATHS
+######################################################
+
+# Data inputs
 source_network_dataset: "shp\\MM_NetworkDataset_03052025.gdb\\NetworkDataset"
 source_tdm: "shp\\Master_Segs_withFactors_20230801_BY2023SegSummary\\Master_Segs_withFactors_20230801_BY2023SegSummary.shp"
-pythonw: "C:\\Program Files\\ArcGIS\\Pro\\bin\\Python\\envs\\arcgispro-py3\\python.exe"
+source_taz: "shp\\taz.gdb\\ATO"
 
+# Software paths
+arcgis_pro: "C:\\Program Files\\ArcGIS\\Pro\\bin\\ArcGISPro.exe"
+python: "C:\\Program Files\\ArcGIS\\Pro\\bin\\Python\\envs\\arcgispro-py3\\python.exe"
 
+# Scripts
 network_setup: "1_network_setup.py"
 taz_setup: "2_taz_setup.py"
 mod_drive: "3_mod_drive.py"

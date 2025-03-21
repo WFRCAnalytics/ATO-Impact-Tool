@@ -13,13 +13,20 @@ import os
 import arcpy
 import shutil
 import pandas as pd
+import yaml
 from src.ato_tools import ato
 
 arcpy.env.overwriteOutput = True
 arcpy.env.parallelProcessingFactor = "90%"
 
-# source files and fields - update this before running!
-source_taz = r'shp\taz.gdb\ATO'
+def load_yaml(file_path):
+    with open(file_path, 'r') as file:
+        return yaml.safe_load(file)
+    
+
+# source files and fields
+config = load_yaml('0_config.yaml')
+source_taz = config['source_taz']
 hh_source_field = 'HH_19' # field containing TAZ household count
 job_source_field = 'JOB_19' # field containing TAZ job count
 tazid_source_field = 'CO_TAZID'

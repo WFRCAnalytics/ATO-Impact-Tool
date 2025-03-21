@@ -13,12 +13,15 @@ import arcpy
 import numpy as np
 import pandas as pd
 from arcgis.features import GeoAccessor, GeoSeriesAccessor
+from src.ato_tools import ato
+
+arcpy.env.overwriteOutput = True
+arcpy.env.parallelProcessingFactor = "90%"
 
 src = os.path.join(os.path.abspath("."), 'src')
 if src not in sys.path:
     sys.path.append(src)
     
-from src.ato_tools import ato
 
 if 'ato_tools' in sys.modules:
     import importlib

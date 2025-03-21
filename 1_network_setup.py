@@ -24,7 +24,7 @@ def load_yaml(file_path):
 
 
 
-# source files and fields - update this before running!
+# source files and fields
 config = load_yaml('0_config.yaml')
 source_network_dataset = config['source_network_dataset']
 source_tdm = config['source_tdm']

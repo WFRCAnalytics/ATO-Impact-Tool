@@ -6,6 +6,9 @@ import errno
 from arcgis.features import GeoAccessor, GeoSeriesAccessor
 import math
 
+arcpy.env.overwriteOutput = True
+arcpy.env.parallelProcessingFactor = "90%"
+
 test_centroids = os.path.join(os.path.abspath("."), r"baseline.gdb\taz_centroids_sample")
 
 def _ato(jobs, accessible_jobs, hh, accessible_hh, job_per_hh):
