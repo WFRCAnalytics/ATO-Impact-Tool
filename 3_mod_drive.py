@@ -1,12 +1,3 @@
-
-# Network Modifications - Roadways
-
-'''In this notebook a copy of our baseline NetworkDataset is made to be modified reflecting the candidate improvement for roadway projects.
-
-"E:\\Projects\\ATO-Impact-Tool\\3_mod_bike.ipynb"To use this notebook, modify the scenario name (below--no spaces or special characters) and run the three cells below, then run the approiate cell or cells under the "make edits" section corresponding to the project scope of work. Finally, run the cells at the bottom to save your work.'''
-
-
-
 import sys
 if not "edit" in sys.argv:
     print('--begin mod drive' )
@@ -17,14 +8,29 @@ import shutil
 import subprocess
 import time
 import yaml
+import logging
 from src.ato_tools import ato
 
 arcpy.env.overwriteOutput = True
 arcpy.env.parallelProcessingFactor = "90%"
 
+# set up logger
+logging.basicConfig(
+    level=logging.INFO,  # Set the minimum log level
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Log format
+    filename='logs/3_mod_drive.log',  # Log to a file (optional)
+    filemode='a'  # Append to the file (use 'w' to overwrite)
+)
+
+if not "edit" in sys.argv:
+    logging.info("begin mod drive")
+
 def load_yaml(file_path):
     with open(file_path, 'r') as file:
         return yaml.safe_load(file)
+    
+config = load_yaml('0_config.yaml')
+arcgis_pro = config['arcgis_pro']   
 
 base_path = os.path.abspath(".")
 aprx_path = os.path.realpath("ato.aprx")
@@ -32,27 +38,31 @@ aprx_path = os.path.realpath("ato.aprx")
 # store values from user entry
 global entry_value
 global combo_value
+
 if len(sys.argv) < 3:
     print("Error: Missing arguments. Provide both entry and combobox values.")
+    logging.error("Missing arguments. Provide both entry and combobox values")
     sys.exit(1)
 else:
     entry_value = sys.argv[1]
     combo_value = sys.argv[2]    
 
 mode = "Driving"
-# scenario_name = "central_bridge"
 target_gdb =  os.path.join(base_path, "scenario", mode, entry_value + ".gdb")
 layer_name = 'BPA-Scenario'
 
-#######################
+#===========================
 # prepare template network
-#######################
+#===========================
 
 def  prepare_network():
 
     print('--preparing template network')
+    logging.info("preparing template network")
 
+    #-------------------------------------------------
     # create scenario file geodatabase from template
+    #-------------------------------------------------
 
     # if target gdb exists, delete it
     if os.path.isdir(target_gdb):
@@ -60,10 +70,10 @@ def  prepare_network():
     
     # copy template
     shutil.copytree(r"scenario\scenario_template.gdb", target_gdb)
-
     arcpy.env.workspace = target_gdb
 
     # Open the ArcGIS Pro project
+    logging.info("Accessing the ArcGIS Pro project")
     aprx = arcpy.mp.ArcGISProject(aprx_path)
     map_name = "Map"
     map_obj = aprx.listMaps(map_name)[0]
@@ -81,18 +91,20 @@ def  prepare_network():
     # save and remove the project from the namespace
     aprx.save()
     del aprx, map_obj
+    logging.info("ArcGIS Pro project closed")
     time.sleep(10)
 
     # Restart the script in a new process so that any locks are released 
+    logging.info("Restarting the mod drive script")
     subprocess.Popen([sys.executable, '-u'] + sys.argv + ["edit"], close_fds=True)
 
     # Exit the current script to ensure it stops completely
     sys.exit()
 
 
-#######################
+#======================
 # modify  network
-#######################
+#======================
 
 '''**Follow the instructions below for the appropriate section to make edits**
 
@@ -109,14 +121,14 @@ Grade-separated crossing | Add new line across intersection (no intersection imp
 def modify_network():
 
     # launch arcgis pro
-    config = load_yaml('0_config.yaml')
-    arcgis_pro = config['arcgis_pro']   
-    print('--Opening arcgis pro...')
+    print('--launching ArcGIS Pro...')
+    logging.info("launching ArcGIS Pro")
     print('--Remember to save the edits, leave the new/edited features selected, and save the project')
     try:
         subprocess.run([arcgis_pro, aprx_path], check=True)
     except subprocess.CalledProcessError as e:
         print(f"Failed to open ArcGIS Pro: {e}", "error")
+        logging.error("Failed to open ArcGIS Pro")
         return
     
 
@@ -124,17 +136,21 @@ def modify_network():
     # resume after arcgis pro closes
     #================================
 
-    print('--arcgis pro closed, resuming script')
+    print('--ArcGIS Pro session closed, resuming script')
+    logging.info("ArcGIS Pro session closed, resuming script")
     bpa = arcpy.management.MakeFeatureLayer(  os.path.join(target_gdb, r"NetworkDataset\BikePedAuto"),  "BPA")
 
     # Open the ArcGIS Pro project
+    logging.info("Accessing the ArcGIS Pro project")
     aprx = arcpy.mp.ArcGISProject(aprx_path)
     map_name = "Map"
     m = aprx.listMaps(map_name)[0]
     bpa = m.listLayers(layer_name)[0]
     
+    print(f'--(re)calculating attributes for {combo_value}')
+    logging.info(f"(re)calculating attributes for {combo_value}")
+
     ## New construction (line)
-    print(f'--recalculating attributes for {combo_value}')
     if combo_value == 'New Construction': 
         
         '''For new construction, new lines and connections are added to the BPA-Scenario (BikePedAuto) layer in the Network Dataset.'''
@@ -148,6 +164,7 @@ def modify_network():
             arcpy.management.CalculateField(bpa, "BikeTime", '!Length_Miles! / (11 / 60)', "PYTHON3", None, "DOUBLE")
         else:
             print("Error: operation will affect more than 250 features. Did you select only the intended target?")
+            logging.warning(f"Error: operation will affect more than 250 features")
     
     ## Widening / Restripe (line)
     elif combo_value == 'Widening | Restripe': 
@@ -172,6 +189,7 @@ def modify_network():
             )
         else:
             print("Warning: operation will affect more than 200 features - did you select only the intended target?")
+            logging.warning(f"Error: operation will affect more than 220 features")
 
     ## Operational (line)
     elif combo_value == 'Operational': 
@@ -185,13 +203,13 @@ def modify_network():
             arcpy.management.CalculateField(bpa, "DriveTime", expression, "PYTHON3", None, "DOUBLE")
         else:
             print("Warning: operation will affect more than 100 features - did you select only the intended target?")
+            logging.warning(f"Error: operation will affect more than 100 features")
 
 
     ## New interchange (point) 
     elif combo_value == 'New Interchange': 
         '''Add connections in network.'''
         pass
-
 
 
     ## Grade-separated crossing
@@ -218,41 +236,44 @@ def modify_network():
                 "PYTHON3", None, "DOUBLE"
             )
         else:
-            print("Warning: operation will affect more than 100 "
-                "features - did you select only the intended target?")
+            print("Warning: operation will affect more than 100 features - did you select only the intended target?")
+            logging.warning(f"Error: operation will affect more than 100 features")
     
 
     # clear the selection before creating the new network dataset
-    try:
-        arcpy.management.SelectLayerByAttribute(bpa, "CLEAR_SELECTION")
-    except:
-        pass
+    arcpy.management.SelectLayerByAttribute(bpa, "CLEAR_SELECTION")
 
     # remove the bpa layer and close the project
     m.removeLayer(bpa)
     aprx.save()
     del aprx
+    logging.info("ArcGIS Pro project closed")
 
 
     # build the newly created network dataset
-    print('--building the modified network')
+    print('--rebuilding the modified network')
+    logging.info("rebuilding the modified network")
     nd = os.path.join(target_gdb, r"NetworkDataset\NetworkDataset_ND")
     arcpy.CheckOutExtension("Network")
     ato.build(nd)
+    logging.info("modified network rebuilt")
     arcpy.CheckInExtension("Network")
 
 
 ###################
 # MAIN
 ###################
+
 def main():
     if "edit" in sys.argv:
-        print('--begin editing')
+        logging.info('modify network started')
         modify_network()
-        print('--scripts finished')
+        logging.info('modify network completed')
     else:
-        print('--begin scenario network prep')
+        logging.info('prepare network started')
         prepare_network()
+        logging.info('prepare network completed')
+    logging.info('mod drive completed')
     
 if __name__ == "__main__":
     main()

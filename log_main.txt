@@ -1,0 +1,4 @@
+[2025-03-25 16:43:00] --Script started
+[2025-03-25 16:44:32] --Script started
+[2025-03-25 16:44:32] --Preparing template network
+[2025-03-25 16:44:33] --Preparation complete, launching edit.py

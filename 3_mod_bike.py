@@ -15,14 +15,30 @@ import shutil
 import subprocess
 import time
 import yaml
+import logging
 from src.ato_tools import ato
 
 arcpy.env.overwriteOutput = True
 arcpy.env.parallelProcessingFactor = "90%"
 
+# set up logger
+logging.basicConfig(
+    level=logging.INFO,  # Set the minimum log level
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Log format
+    filename='logs/3_mod_bike.log',  # Log to a file (optional)
+    filemode='a'  # Append to the file (use 'w' to overwrite)
+)
+
+if not "edit" in sys.argv:
+    logging.info("begin mod bike")
+
 def load_yaml(file_path):
     with open(file_path, 'r') as file:
         return yaml.safe_load(file)
+    
+config = load_yaml('0_config.yaml')
+arcgis_pro = config['arcgis_pro']
+python = config['python']
 
 base_path = os.path.abspath(".")
 aprx_path = os.path.realpath("ato.aprx")
@@ -30,10 +46,13 @@ aprx_path = os.path.realpath("ato.aprx")
 # get this from an argument in the gui
 # scenario_name = "test_buffered_bike_lane" # e.g. "4700_south_bike_lane"
 # facility_type = "buffered_bike_lane"
+
 global entry_value
 global combo_value
+
 if len(sys.argv) < 3:
     print("Error: Missing arguments. Provide both entry and combobox values.")
+    logging.error("Missing arguments. Provide both entry and combobox values")
     sys.exit(1)
 else:
     entry_value = sys.argv[1]
@@ -43,14 +62,18 @@ mode = "Cycling"
 target_gdb =  os.path.join(base_path, "scenario", mode, entry_value + ".gdb")
 layer_name = 'BPA'
 
-#######################
+#===========================
 # prepare template network
-#######################
+#===========================
 
 def  prepare_network():
     
     print('--preparing template network')
+    logging.info("preparing template network")
+
+    #-------------------------------------------------
     # create scenario file geodatabase from template
+    #-------------------------------------------------
 
     # if target gdb exists, delete it
     if os.path.isdir(target_gdb):
@@ -58,10 +81,10 @@ def  prepare_network():
         
     # copy template
     shutil.copytree(r"scenario\scenario_template.gdb", target_gdb)
-
     arcpy.env.workspace = target_gdb
 
     # Open the ArcGIS Pro project
+    logging.info("Accessing the ArcGIS Pro project")
     aprx = arcpy.mp.ArcGISProject(aprx_path)
     map_name = "Map"
     map_obj = aprx.listMaps(map_name)[0]
@@ -79,29 +102,31 @@ def  prepare_network():
     # save and remove the project from the namespace
     aprx.save()
     del aprx, map_obj
+    logging.info("ArcGIS Pro project closed")
     time.sleep(10)
 
     # Restart the script in a new process so that any locks are released 
-    subprocess.Popen([sys.executable, '-u'] + sys.argv + ["edit"], close_fds=True)
+    logging.info("Restarting the mod bike script")
+    subprocess.Popen([python, '-u'] + sys.argv + ["edit"], close_fds=True)
 
     # Exit the current script to ensure it stops completely
     sys.exit()
 
-#######################
+#======================
 # modify  network
-#######################
+#======================
 
 def modify_network():
 
-    # launch arcgis pro
-    config = load_yaml('0_config.yaml')
-    arcgis_pro = config['arcgis_pro']   
-    print('--opening arcgis pro...')
-    print('--Remember to save edits, leave new/edited features selected, and save project')
+    # launch arcgis pro  
+    print('--launching ArcGIS Pro...')
+    logging.info("launching ArcGIS Pro")
+    print('--Remember to save edits, leave new/edited features selected, and save the project')
     try:
         subprocess.run([arcgis_pro, aprx_path], check=True)
     except subprocess.CalledProcessError as e:
         print(f"Failed to open ArcGIS Pro: {e}", "error")
+        logging.error("Failed to open ArcGIS Pro")
         return
     
     # Make Edits
@@ -119,10 +144,12 @@ def modify_network():
     # resume after arcgis pro closes
     #================================
 
-    print('--arcgis pro closed, resuming script')
+    print('--ArcGIS Pro session closed, resuming script')
+    logging.info("ArcGIS Pro session closed, resuming script")
     bpa = arcpy.management.MakeFeatureLayer(  os.path.join(target_gdb, r"NetworkDataset\BikePedAuto"),  "BPA")
 
     # Open the ArcGIS Pro project
+    logging.info("Accessing the ArcGIS Pro project")
     aprx = arcpy.mp.ArcGISProject(aprx_path)
     map_name = "Map"
     m = aprx.listMaps(map_name)[0]
@@ -130,7 +157,9 @@ def modify_network():
 
     # SET ATTRIBUTES FOR NEW FEATURE
     # Highlight new feature and run this cell
-    print('--calculating attributes for new feature')
+    print(f'--(re)calculating attributes for {combo_value}')
+    logging.info(f"(re)calculating attributes for {combo_value}")
+
     if int(arcpy.management.GetCount(bpa)[0]) < 5:
         arcpy.management.CalculateField(bpa, "Name", "'" + entry_value + "'", "PYTHON3", None, "DOUBLE")
         arcpy.management.CalculateField(bpa, "Length_Miles", '!shape.length@miles!', "PYTHON3", None, "DOUBLE")
@@ -141,6 +170,7 @@ def modify_network():
         arcpy.management.CalculateField(bpa, "PedNetwork", "'Y'", "PYTHON3", None, "DOUBLE")
     else:
         print("--Error: operation will affect more than 5 features. Did you select only the new bike facility(s)?")
+        logging.warning(f"Error: operation will affect more than 5 features")
 
     ## All Features (New & Existing)
 
@@ -182,31 +212,30 @@ def modify_network():
 
 
     else:
-        print("--Warning: operation will affect " + 
-            arcpy.management.GetCount(bpa)[0] + 
-            " features - did you select only the intended target?")
+        print(f"--Warning: operation will affect {arcpy.management.GetCount(bpa)[0]} features - did you select only the intended target?")
+        logging.warning(f"operation will affect {arcpy.management.GetCount(bpa)[0]} features")
 
     ## Save Edits
 
     # save edits (if any) to BPA layer using the Edit ribbon - first!
 
     # clear the selection before creating the new network dataset
-    try:
-        arcpy.management.SelectLayerByAttribute(bpa, "CLEAR_SELECTION")
-    except:
-        pass
+    arcpy.management.SelectLayerByAttribute(bpa, "CLEAR_SELECTION")
 
     # remove the bpa layer and close the project
     m.removeLayer(bpa)
     aprx.save()
     del aprx
+    logging.info("ArcGIS Pro project closed")
         
 
     # build the newly created network dataset
-    print('--building the modified network')
+    print('--rebuilding the modified network')
+    logging.info("rebuilding the modified network")
     nd = os.path.join(target_gdb, r"NetworkDataset\NetworkDataset_ND")
     arcpy.CheckOutExtension("Network")
     ato.build(nd)
+    logging.info("modified network rebuilt")
     arcpy.CheckInExtension("Network")
 
     
@@ -216,12 +245,14 @@ def modify_network():
 ###################
 def main():
     if "edit" in sys.argv:
-        print('--begin editing')
+        logging.info('modify network started')
         modify_network()
-        print('--scripts finished')
+        logging.info('modify network completed')
     else:
-        print('--begin scenario network prep')
+        logging.info('prepare network started')
         prepare_network()
+        logging.info('prepare network completed')
+    logging.info('mod bike completed')
     
 if __name__ == "__main__":
     main()

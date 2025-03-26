@@ -9,6 +9,10 @@ import sys
 from tkinter import ttk
 import webbrowser
 
+# setup log folder
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+
 # Load YAML configuration
 def load_yaml(file_path):
     with open(file_path, 'r') as file:
@@ -17,7 +21,11 @@ def load_yaml(file_path):
 config = load_yaml('0_config.yaml')  # Load config
 
 def open_help_link():
-    url = "https://docs.google.com/presentation/d/1GKsw4e6UGEFhFP3W1ZAoSSxLRf7SaCxO06ve7mZ2mEY"  # Replace with your actual URL
+    url = "https://docs.google.com/presentation/d/1GKsw4e6UGEFhFP3W1ZAoSSxLRf7SaCxO06ve7mZ2mEY"
+    webbrowser.open_new_tab(url)
+
+def open_roadmap_link():
+    url = "https://docs.google.com/presentation/d/1gNuXzOzu7qbz8knc4N6Cvs0oA981buRly9AOLREVyZA"
     webbrowser.open_new_tab(url)
 
 
@@ -194,6 +202,7 @@ class MyApp:
 
         info_menu = Menu(menu_bar, tearoff=0)
         info_menu.add_command(label="Help", command=open_help_link)
+        info_menu.add_command(label="Roadmap", command=open_roadmap_link)
         info_menu.add_command(label="About", command=None)
         menu_bar.add_cascade(label="Info", menu=info_menu)
 
@@ -302,7 +311,7 @@ class NetworkSetupPage(BasePage):
         super().__init__(parent, controller)
 
         header_text = '1) Network Setup'
-        description_text = "This script prepares the Network Dataset datasets used for all ATO calculations."
+        description_text = "This script prepares the Network Dataset datasets used for all ATO calculations.\n\nEstimated run time: ~3 minutes"
         script_name = 'network_setup'
 
         style = ttk.Style()
@@ -331,7 +340,7 @@ class NetworkSetupPage(BasePage):
         self.text_frame = tk.Frame(frame)
         self.text_frame.grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=10)  # Prevent full stretch
 
-        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=40)  # Reduce width from 50 to 30
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)  # Reduce width from 50 to 30
         self.text_output.pack(side=tk.LEFT, fill=tk.Y)  # No full horizontal expansion
 
         self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
@@ -352,7 +361,7 @@ class TazSetupPage(BasePage):
         super().__init__(parent, controller)
 
         header_text = '2) TAZ Setup'
-        description_text = "This script prepares the TAZ dataset used for all ATO calculations."
+        description_text = "This script prepares the TAZ dataset used for all ATO calculations.\n\nEstimated run time: ~20 minutes"
         script_name = 'taz_setup'
         
         style = ttk.Style()
@@ -381,7 +390,7 @@ class TazSetupPage(BasePage):
         self.text_frame = tk.Frame(frame)
         self.text_frame.grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=10)  # Prevent full stretch
 
-        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=40)  # Reduce width from 50 to 30
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)  # Reduce width from 50 to 30
         self.text_output.pack(side=tk.LEFT, fill=tk.Y)  # No full horizontal expansion
 
         self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
@@ -434,7 +443,7 @@ class ScoreModsPage(BasePage):
         self.text_frame = tk.Frame(frame)
         self.text_frame.grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=10)  # Prevent full stretch
 
-        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=40)  # Reduce width from 50 to 30
+        self.text_output = tk.Text(self.text_frame, wrap="word", height=10, width=50)  # Reduce width from 50 to 30
         self.text_output.pack(side=tk.LEFT, fill=tk.Y)  # No full horizontal expansion
 
         self.scrollbar = ttk.Scrollbar(self.text_frame, command=self.text_output.yview)
@@ -503,7 +512,7 @@ class ModDrivePage(BasePage):
         
         
         header_text = '3A) Mod Drive'
-        description_text = '''Modify a copy of the baseline NetworkDataset with the candidate for improvement for road projects.\n\n1. Set the scenario name in the cell below before running the script.\n\n2. Run the script, ArcGIS Pro will launch.\n\n3. IMPORTANT: When you are done making your edits, leave the edited feature selected.\n\n4. Remember to save your edits and the project when you are finished'''
+        description_text = '''Modify a copy of the baseline NetworkDataset with the candidate for improvement for road projects.\n\n1. Set the scenario name in the cell below before running the script.\n\n2. Run the script, ArcGIS Pro will launch.\n\n3. IMPORTANT: When you are done making your edits, leave the edited feature selected.\n\n4. Remember to save your edits and the project when you are finished.\n\nEstimated run time: ~5 minutes per modification'''
         script_name = 'mod_drive'
 
         style = ttk.Style()
@@ -576,7 +585,7 @@ class ModBikePage(BasePage):
         
         
         header_text = '3C) Mod Bike'
-        description_text = '''Modify a copy of the baseline NetworkDataset with the candidate for improvement for bicycle projects.\n\n1. Set the scenario name and improvement type in the cell below before running the script.\n\n2. Run the script, ArcGIS Pro will launch.\n\n3. IMPORTANT: When you are done making your edits, leave the edited feature selected.\n\n4. Remember to save your edits and the project when you are finished'''
+        description_text = '''Modify a copy of the baseline NetworkDataset with the candidate for improvement for bicycle projects.\n\n1. Set the scenario name and improvement type in the cell below before running the script.\n\n2. Run the script, ArcGIS Pro will launch.\n\n3. IMPORTANT: When you are done making your edits, leave the edited feature selected.\n\n4. Remember to save your edits and the project when you are finished\n\nEstimated run time: ~5 minutes per modification'''
         script_name = 'mod_bike'
         
         style = ttk.Style()
@@ -609,7 +618,6 @@ class ModBikePage(BasePage):
         # Options for the dropdown
         options = ["shared_lane", "shoulder_bikeway", "bike_lane", "buffered_bike_lane", "protected_bike_lane", "bike_blvd", "shared_use_path"]
 
-    
         # Create the dropdown menu
         dropdown = ttk.Combobox(input_frame, values=options, width=30)
         dropdown.grid(row=1, column=1, pady=5, sticky='w')

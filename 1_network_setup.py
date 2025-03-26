@@ -1,27 +1,25 @@
-# Data Preparation and Setup
-
-#The cells below prepare the TAZ and Network Dataset datasets used for all ATO calculations. 
-
-# Before you get started:
-
-# 1. Download Multimodal network dataset from [https://gis.utah.gov/products/sgid/transportation/multimodal-network/] 
-# 2. Extract the Multimodal network dataset to the `shp` folder and update the `source_network_dataset` value below
-# 2. Obtain a copy of a TDM export from WFRC and place in the shp folder
-# 3. Update the `source_tdm` value to point to the TDM export
 print('--begin network setup')
-
 import sys
 import os
 import arcpy
 import shutil
 import yaml
+import logging
 from src.ato_tools import ato
 
 
 def load_yaml(file_path):
     with open(file_path, 'r') as file:
         return yaml.safe_load(file)
-
+    
+# set up logger
+logging.basicConfig(
+    level=logging.INFO,  # Set the minimum log level
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Log format
+    filename='logs/1_network_setup.log',  # Log to a file (optional)
+    filemode='a'  # Append to the file (use 'w' to overwrite)
+)
+logging.info("begin network setup")
 
 
 # source files and fields
@@ -29,10 +27,9 @@ config = load_yaml('0_config.yaml')
 source_network_dataset = config['source_network_dataset']
 source_tdm = config['source_tdm']
 
-src = os.path.join(os.path.abspath("."), 'src')
-if src not in sys.path:
-    sys.path.append(src)
-    
+# src = os.path.join(os.path.abspath("."), 'src')
+# if src not in sys.path:
+#     sys.path.append(src)
 
 
 # Set the XYResolution environment to a linear unit
@@ -46,6 +43,7 @@ base_path = os.path.abspath(".")
 base_gdb = os.path.join(base_path, "baseline.gdb")
 
 arcpy.CheckOutExtension("network")
+logging.info("network extension check out")
 
 # Baseline Network Dataset Setup
 
@@ -74,23 +72,15 @@ if os.path.isdir(base_gdb):
 arcpy.management.CreateFileGDB(base_path, "baseline")
 
 # Copy NetworkDataset to our working GDB - 50 seconds
-print('--copying gdb')
+print('--copying gdb (50 seconds)')
+logging.info("copying gdb")
 arcpy.management.Copy(source_network_dataset,  os.path.join(base_gdb, "NetworkDataset"))
 
 # delete existing network
 print('--deleting network dataset')
 arcpy.management.Delete(os.path.join(base_gdb, r"NetworkDataset\NetworkDataset_ND"))
 
-# # if open in ArcGIS Pro, remove all layers
-# try:
-#     aprx = arcpy.mp.ArcGISProject("CURRENT")
-#     mp = aprx.listMaps("Map")[0]
-#     for rmlyr in mp.listLayers():    
-#         if rmlyr.name not in ['World Topographic Map', 'World Hillshade']:        
-#             mp.removeLayer(rmlyr)
-# except OSError:
-#     pass
-
+# create a feature layer from bikepedauto
 bpa = arcpy.management.MakeFeatureLayer(os.path.join(base_gdb, r"NetworkDataset\BikePedAuto"),   "BPA")
 
 # add hierarchy to clipped BikePedAuto
@@ -134,6 +124,8 @@ arcpy.management.CalculateField(bpa, "hierarchy", expression, "PYTHON3", codeblo
 # Select non-road features
 arcpy.management.SelectLayerByAttribute(bpa, "NEW_SELECTION", "hierarchy IS NULL")
 
+print('--deleting non road bpa features (50 seconds)')
+logging.info("deleting non road bpa features ")
 arcpy.management.DeleteFeatures(bpa) # 50 seconds
 # sometimes this fails - removing from map and adding again seems to help
 
@@ -194,6 +186,7 @@ def getSpeed(spd, len):
     return None if spd is None else float(60*len/spd)
 """
 print('--calculating drive times')
+logging.info("calculating drive times")
 arcpy.management.CalculateField(bpa, "DriveTime_Peak",  "getSpeed(!PK_SPD!, !Length_Miles!)",  "PYTHON3", codeblock, "DOUBLE")
 arcpy.management.CalculateField(bpa, "DriveTime_FF",    "getSpeed(!FF_SPD!, !Length_Miles!)",  "PYTHON3", codeblock, "DOUBLE")
 
@@ -202,14 +195,19 @@ arcpy.management.CalculateField( bpa,  "DriveTime",   "!DriveTime! if !DriveTime
 
 # clean up temporary layers'=
 print('--cleanup')
+logging.info("Cleaning up temporary layers")
 arcpy.management.Delete(r"memory\taz_buffer")
 arcpy.management.Delete(os.path.join(base_gdb, "TDM_SpatialJoin"))
 arcpy.management.Delete(os.path.join(base_gdb, "TDM"))
 
 # finally, build the network dataset - 60 seconds
-print('--rebuilding the network dataset')
+print('--rebuilding the network dataset (60 seconds)')
+logging.info("rebuilding the network dataset")
 ato.build(os.path.join(base_gdb, r'NetworkDataset\NetworkDataset_ND'))
+logging.info("network dataset rebuild complete")
+arcpy.CheckInExtension("network")
 print('--network setup complete!')
+logging.info("network setup complete")
 
 
 

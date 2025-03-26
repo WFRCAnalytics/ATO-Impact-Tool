@@ -33,6 +33,42 @@ def _survey_weight(t):
         return 1/(1 + math.exp(0.1092 * t - 1.5604))
     else:
         return 0
+ 
+def _survey_weight_new(t, mode):
+    """WFRC's Distance Decay Function"""
+    if mode == 'drive':
+    
+        if t < 10:
+            return 1
+        elif t > 40:
+            return 0
+        else:
+            decay_range = 40 - 10
+            elapsed = t - 10
+            return  1 - (elapsed / decay_range)
+    
+    elif mode == 'transit':
+        
+        if t < 10:
+            return 1
+        elif t > 60:
+            return 0
+        else:
+            decay_range = 60 - 10
+            elapsed = t - 10
+            return  1 - (elapsed / decay_range)
+        
+    elif mode == 'bike':
+        
+        if t < 10:
+            return 1
+        elif t > 30:
+            return 0
+        else:
+            decay_range = 30 - 10
+            elapsed = t - 10
+            return  1 - (elapsed / decay_range)
+
 
 
 def build(nd, template = None, validate = True):
@@ -51,7 +87,7 @@ def build(nd, template = None, validate = True):
         template = os.path.join(os.path.abspath("."), "network_template.xml")
 
     target_gdb = nd[:-len(r'\NetworkDataset\NetworkDataset_ND')]
-    print(f"Target GDB: {target_gdb}")
+    print(f"--Target GDB: {target_gdb}")
     
     # create network dataset from template
     arcpy.nax.CreateNetworkDatasetFromTemplate(
@@ -66,9 +102,9 @@ def build(nd, template = None, validate = True):
     end = time.time()
 
     duration = end-start
-    print(f"Network Build Time (seconds): {duration}")
+    print(f"--Network Build Time (seconds): {duration}")
     if duration < 10:
-        print("Warning: abnormally short build duration. Verify network validity.")
+        print("--Warning: abnormally short build duration. Verify network validity.")
     
     if validate == True:
         test(nd)
@@ -114,18 +150,18 @@ def test(nd, mode = ['Cycling', 'Driving', 'Transit']):
         if result.solveSucceeded:
             result.export(arcpy.nax.RouteOutputDataType.Routes, output_routes)
         else:
-            print("Solved failed")
+            print("--Solved failed")
             print(result.solverMessages(arcpy.nax.MessageSeverity.All))
 
         # test if travel time between 1 and 60 minutes
         result = pd.DataFrame.spatial.from_featureclass(output_routes)
         travel_time = result.at[0,'Total_Minutes']
         if travel_time < 1 or travel_time > 60:
-            msg = f"Invalid travel time {travel_time} for {mode}. See README"
+            msg = f"--Invalid travel time {travel_time} for {mode}. See README"
             print(msg)
             raise Exception(msg)
         else:
-            print(f"Network test passes for {test_mode}.")
+            print(f"--Network test passes for {test_mode}.")
             
     arcpy.env.addOutputsToMap = True
 
@@ -162,7 +198,7 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
 
     nd_layer_name = "wfrc_mm_nd"
 
-    print(f"Solving skim using {mode} network for {nd} .")
+    print(f"--Solving skim using {mode} network for {nd} .")
     arcpy.AddMessage(f"Creating network from {nd}")
 
     if arcpy.Exists(nd):
@@ -206,29 +242,29 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
     if result.solveSucceeded:
         result.export(arcpy.nax.OriginDestinationCostMatrixOutputDataType.Lines, r"memory\output_lines")
     else:
-        print("Solve failed")
+        print("--Solve failed")
         print(result.solverMessages(arcpy.nax.MessageSeverity.All))
 
     od = pd.DataFrame.spatial.from_featureclass(r"memory\output_lines")
 
     if od['Total_Time'].mean() < 1:
-        print("Network validation: FAIL")
-        print("Travel Times: ", od['total_time'].head())
+        print("--Network validation: FAIL")
+        print("--Travel Times: ", od['total_time'].head())
         raise ValueError('Network Travel Times are Zero - Invalid Network')
 
     # save table to input GDB
     od.spatial.to_table(out_table)
 
     # save table to input GDB
-    print("Skim matrix written to " + out_table)
+    print("--Skim matrix written to " + out_table)
 
     end = time.time()
     duration = round((end-start)/60, 2)
 
-    print(f"Skim Matrix Solve Time (mins): {duration}")
+    print(f"--Skim Matrix Solve Time (mins): {duration}")
     arcpy.AddMessage(f"Skim Matrix Solve Time: {duration}")
     if duration < 2:
-        print(f"Error with {nd}. Run ato.build('{nd}')")
+        print(f"--Error with {nd}. Run ato.build('{nd}')")
         raise Exception('Skim matrix solve time too short. Consider rebuilding network.')
 
 
@@ -253,8 +289,8 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     od = pd.DataFrame(arr)
 
     if od['total_time'].mean() < 1:
-        print("Network validation: FAIL")
-        print("Travel Times: ", od['total_time'].head())
+        print("--Network validation: FAIL")
+        print("--Travel Times: ", od['total_time'].head())
         raise ValueError('Network Travel Times are Zero - Invalid Network')
 
     # Join the TAZ data
@@ -267,7 +303,7 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
 
     if job_per_hh == None:
         job_per_hh = round(taz['job'].sum() / taz['hh'].sum(), 5)
-        print(f"Regional Jobs per HH Ratio: {job_per_hh}")
+        print(f"--Regional Jobs per HH Ratio: {job_per_hh}")
 
     df = pd.merge(od, taz, left_on="destination_name", right_on="taz_id")
 
@@ -311,10 +347,10 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     taz_ato.spatial.to_table(out_table)
 
     # save table to input GDB
-    print(f"Scores written to {out_table}")
+    print(f"--Scores written to {out_table}")
 
     ato_score = taz_ato['ato'].sum()
-    print(f"Network ATO: {ato_score}")
+    print(f"--Network ATO: {ato_score}")
     
     return ato_score
 
@@ -353,6 +389,6 @@ def diff(baseline, scenario, out_table = None):
 
     score = df['diff_ato'].sum()
 
-    print(f'Scenario score: {score}')
+    print(f'--Scenario score: {score}')
 
     return score

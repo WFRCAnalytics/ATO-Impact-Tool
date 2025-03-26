@@ -10,6 +10,7 @@ GpMessages/
 ImportLog/
 scenario/Driving/
 scenario/Transit/
+logs/
 scenario/scenario_scores.csv
 ato.csv.xml
 
