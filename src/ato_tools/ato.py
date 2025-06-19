@@ -35,8 +35,8 @@ def _survey_weight(t):
         return 0
  
 def _survey_weight_new(t, mode):
-    """WFRC's Distance Decay Function"""
-    if mode == 'drive':
+    """WFRC's New Distance Decay Function"""
+    if mode == 'driving':
     
         if t < 10:
             return 1
@@ -58,7 +58,7 @@ def _survey_weight_new(t, mode):
             elapsed = t - 10
             return  1 - (elapsed / decay_range)
         
-    elif mode == 'bike':
+    elif mode == 'cycling':
         
         if t < 10:
             return 1
@@ -273,7 +273,7 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
     return True
 
 
-def score(skim_matrix, taz_table, out_table, job_per_hh = None):
+def score(mode, skim_matrix, taz_table, out_table, job_per_hh = None):
     """Given a skim matrix, solve and score TAZ ATO
     
     Keyword arguments:
@@ -311,7 +311,7 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
               inplace=True)
 
     # Weight outputs
-    df['survey_weight'] = df['total_time'].apply(lambda x: _survey_weight(x)).round(3)
+    df['survey_weight'] = df['total_time'].apply(lambda x: _survey_weight_new(x, mode)).round(3)
 
     df['accessible_jobs'] = round(df['survey_weight'] * df['job'])
     df['accessible_hh'] = round(df['survey_weight'] * df['hh'])

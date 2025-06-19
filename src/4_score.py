@@ -85,6 +85,7 @@ for scenario in modal_scenarios:
     print(f'--scoring {scenario}')
     if not arcpy.Exists(os.path.join(scenario['gdb'], "ato")):
         ato.score(
+            mode = scenario['mode'],
             skim_matrix = os.path.join(scenario['gdb'], r"skim_matrix"),
             taz_table = r'baseline.gdb\taz_table',
             out_table = os.path.join(scenario['gdb'], r"ato")
@@ -96,6 +97,7 @@ for scenario in land_use_scenarios:
     if scenario['mode'] == 'Land_Use' and not arcpy.Exists(os.path.join(scenario['gdb'], "ato_driving")):
         for mode in ['driving', 'transit', 'cycling']:
             ato.score(
+                mode = mode,
                 skim_matrix = os.path.join(baseline_gdb, "skim_" + mode),
                 taz_table = os.path.join(scenario['gdb'], r"taz_table"),
                 out_table = os.path.join(scenario['gdb'], r"ato_" + mode),

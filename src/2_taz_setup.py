@@ -138,6 +138,7 @@ print('--calculating baseline scores')
 logging.info("calculating baseline scores")
 for mode in ['driving', 'transit', 'cycling']:
     ato.score(
+        mode = mode,
         skim_matrix = os.path.join(base_gdb, 'skim_' + mode),
         taz_table = os.path.join(base_gdb, 'taz_table'),
         out_table = os.path.join(base_gdb, 'ato_' + mode)
