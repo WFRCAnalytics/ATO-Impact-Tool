@@ -188,7 +188,6 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
 
     # location of the file geodatabase with the WFRC TAZ shapes and TAZ centroids    
     tmp_env = arcpy.env.workspace
-
     target_gdb = nd[:-len(r'\NetworkDataset\NetworkDataset_ND')]
 
     arcpy.env.workspace = target_gdb

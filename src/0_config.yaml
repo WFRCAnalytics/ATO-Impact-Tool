@@ -1,0 +1,43 @@
+######################################################
+# REMEMBER TO INCLUDE 2 SLASHES IF REPLACING PATHS
+######################################################
+
+# Data inputs
+source_network_dataset: "shp\\MM_NetworkDataset_06112025.gdb\\NetworkDataset"
+source_tdm: "shp\\Master_Segs_withFactors_20230801_BY2023SegSummary\\Master_Segs_withFactors_20230801_BY2023SegSummary.shp"
+source_taz: "shp\\taz.gdb\\ATO"
+
+# Software paths
+arcgis_pro: "C:\\Program Files\\ArcGIS\\Pro\\bin\\ArcGISPro.exe"
+python: "C:\\Program Files\\ArcGIS\\Pro\\bin\\Python\\envs\\arcgispro-py3\\python.exe"
+
+# Scripts
+network_setup: 'src\\1_network_setup.py'
+taz_setup: 'src\\2_taz_setup.py'
+mod_drive: 'src\\3_mod_drive.py'
+mod_bike: 'src\\3_mod_bike.py'
+mod_transit: 'src\\3_mod_transit.py'
+mod_landuse: 'src\\3_mod_landuse.py'
+score: 'src\\4_score.py'
+
+# Factors
+
+# transit operated speed in mph
+transit_operating_speeds:
+  brt: 30
+  commuter_rail: 30
+  express: 20
+  core: 16
+  light_rail: 20
+  local: 13
+  street_car: 11
+
+# bike length distance multiplier
+bike_length_multipliers:
+  shared_lane: 1.0
+  shoulder_bikeway: 0.5
+  bike_lane: 0.5
+  buffered_bike_lane: 0.3
+  protected_bike_lane: 0.2
+  bike_blvd: 0.1
+  shared_use_path: 0.05

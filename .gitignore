@@ -10,13 +10,23 @@ GpMessages/
 ImportLog/
 scenario/Driving/
 scenario/Transit/
+scenario/Cycling/
+scenario/Land_Use/
 logs/
 scenario/scenario_scores.csv
 ato.csv.xml
 
+shp/MM_NetworkDataset*
+shp/*.zip
+
 __pycache__/
 *.py[cod]
 *$py.class
+
+.vs/
+.vscode/
+.backups/
+
 
 # C extensions
 *.so

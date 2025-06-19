@@ -48,12 +48,6 @@ Scores for each scenario represent the weighted average TAZ-level change in acce
 Scores for each scenario are stored into an export CSV: `scenario\scenario_scores.csv` for transportation projects and `scenario\land_use_scenario_scores.csv` for land use projects. 
 
 
-## Network Analyst Bug - Invalid Network Travel Times
-There is an error in Esri's Network Analyst suite that occassionally causes field values in a network dataset to get transposed between fields, resulting in nonsensical impedance values (refer to Esri Case #02899742). This project includes an embedded diagnostic to detect invalid networks.
-
-The `test` function tests for a correct network build by solving a simple routing problem between two points defined in `shp\test_points\test_points.shp`. If these points are not located within the service area of the network dataset, the test will fail.
-
-In general, if the network dataset fails, the cure is simply to rebuild the network dataset using `ato.build(nd)`.
 
 # Operating the Tool
 
@@ -114,3 +108,13 @@ For each project type, choose the appropriate notebook and follow the embedded i
 ## Scoring
 
 Finally, run `4_score.ipynb` to generate the scenario scores.
+
+### Troubleshooting
+
+- If encountering error: no travelMode in network dataset, the network_temple.xml needs to be recreated
+
+- There is an error in Esri's Network Analyst suite that occassionally causes field values in a network dataset to get transposed between fields, resulting in nonsensical impedance values (refer to Esri Case #02899742). This project includes an embedded diagnostic to detect invalid networks.
+
+- The `test` function tests for a correct network build by solving a simple routing problem between two points defined in `shp\test_points\test_points.shp`. If these points are not located within the service area of the network dataset, the test will fail.
+
+- In general, if the network dataset fails, the cure is simply to rebuild the network dataset using `ato.build(nd)`.
