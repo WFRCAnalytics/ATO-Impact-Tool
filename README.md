@@ -68,7 +68,7 @@ Finally, the scoring notebook scores the defined scenarios. Scoring takes 5 – 
 ### Network Setup - 1_network_setup.ipynb
 
 To set up the multimodal transportation network, 
-1. Download Multimodal network dataset from https://gis.utah.gov/data/transportation/street-network-analysis/ and extract to the `shp` folder.
+1. Download Multimodal network dataset from https://gis.utah.gov/products/sgid/transportation/multimodal-network/ and extract to the `shp` folder.
 3. Obtain a copy of a TDM export from WFRC and place in the `shp` folder
 
 Run 1_network_setup.ipynb (requires Network Analyst)
