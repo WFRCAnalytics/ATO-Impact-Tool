@@ -16,7 +16,7 @@ import subprocess
 import time
 import yaml
 import logging
-from src.ato_tools import ato
+from ato_tools import ato
 
 arcpy.env.overwriteOutput = True
 arcpy.env.parallelProcessingFactor = "90%"

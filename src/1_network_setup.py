@@ -5,7 +5,7 @@ import arcpy
 import shutil
 import yaml
 import logging
-from src.ato_tools import ato
+from ato_tools import ato
 
 
 def load_yaml(file_path):
