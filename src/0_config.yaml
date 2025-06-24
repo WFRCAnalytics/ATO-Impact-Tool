@@ -5,7 +5,7 @@
 # Data inputs
 source_network_dataset: "shp\\MM_NetworkDataset_06112025.gdb\\NetworkDataset"
 source_tdm: "shp\\Master_Segs_withFactors_20230801_BY2023SegSummary\\Master_Segs_withFactors_20230801_BY2023SegSummary.shp"
-source_taz: "shp\\taz.gdb\\ATO"
+source_taz: "shp\\TAZ.gdb\\ATO"
 
 # Software paths
 arcgis_pro: "C:\\Program Files\\ArcGIS\\Pro\\bin\\ArcGISPro.exe"
@@ -20,7 +20,14 @@ mod_transit: 'src\\3_mod_transit.py'
 mod_landuse: 'src\\3_mod_landuse.py'
 score: 'src\\4_score.py'
 
+# Data
+hh_source_field: 'HH_2019'
+job_source_field: 'JOB_2019'
+tazid_source_field: 'CO_TAZID'
+
+#-----------
 # Factors
+#-----------
 
 # transit operated speed in mph
 transit_operating_speeds:

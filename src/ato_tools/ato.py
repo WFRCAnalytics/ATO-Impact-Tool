@@ -5,6 +5,7 @@ import time
 import errno
 from arcgis.features import GeoAccessor, GeoSeriesAccessor
 import math
+import numbers
 
 arcpy.env.overwriteOutput = True
 arcpy.env.parallelProcessingFactor = "90%"
@@ -37,38 +38,50 @@ def _survey_weight(t):
 def _survey_weight_new(t, mode):
     """WFRC's New Distance Decay Function"""
     if mode == 'driving':
-    
-        if t < 10:
-            return 1
-        elif t > 40:
-            return 0
+        
+        if isinstance(t, numbers.Number):
+        
+            if t < 10:
+                return 1
+            elif t > 40:
+                return 0
+            else:
+                decay_range = 40 - 10
+                elapsed = t - 10
+                return  1 - (elapsed / decay_range)
         else:
-            decay_range = 40 - 10
-            elapsed = t - 10
-            return  1 - (elapsed / decay_range)
+            return 0
     
     elif mode == 'transit':
+    
+        if isinstance(t, numbers.Number):
         
-        if t < 10:
-            return 1
-        elif t > 60:
-            return 0
+            if t < 10:
+                return 1
+            elif t > 60:
+                return 0
+            else:
+                decay_range = 60 - 10
+                elapsed = t - 10
+                return  1 - (elapsed / decay_range)
         else:
-            decay_range = 60 - 10
-            elapsed = t - 10
-            return  1 - (elapsed / decay_range)
+            return 0
         
     elif mode == 'cycling':
         
-        if t < 10:
-            return 1
-        elif t > 30:
-            return 0
+        if isinstance(t, numbers.Number):
+        
+            if t < 10:
+                return 1
+            elif t > 30:
+                return 0
+            else:
+                decay_range = 30 - 10
+                elapsed = t - 10
+                return  1 - (elapsed / decay_range)
         else:
-            decay_range = 30 - 10
-            elapsed = t - 10
-            return  1 - (elapsed / decay_range)
-
+            return 0
+        
 
 
 def build(nd, template = None, validate = True):

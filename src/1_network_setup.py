@@ -27,11 +27,6 @@ config = load_yaml('src/0_config.yaml')
 source_network_dataset = config['source_network_dataset']
 source_tdm = config['source_tdm']
 
-# src = os.path.join(os.path.abspath("."), 'src')
-# if src not in sys.path:
-#     sys.path.append(src)
-
-
 # Set the XYResolution environment to a linear unit
 arcpy.env.XYResolution = "0.01 Meters"
 arcpy.env.XYTolerance = "0.1 Meters"

@@ -27,19 +27,12 @@ logging.info("begin TAZ setup")
 # source files and fields
 config = load_yaml('src/0_config.yaml')
 source_taz = config['source_taz']
-hh_source_field = 'HH_19' # field containing TAZ household count
-job_source_field = 'JOB_19' # field containing TAZ job count
-tazid_source_field = 'CO_TAZID'
+hh_source_field = config['hh_source_field'] # field containing TAZ household count
+job_source_field = config['job_source_field'] # field containing TAZ job count
+tazid_source_field = config['tazid_source_field'] # unique identifier for the zones
 
-# # delete this later
-# if 'ato_tools' in sys.modules:
-#     import importlib
-#     importlib.reload(ato)
 
-# src = os.path.join(os.path.abspath("."), 'src')
-# if src not in sys.path:
-#     sys.path.append(src)
-    
+
 crs = arcpy.SpatialReference(26912)
 
 # Set the XYResolution environment to a linear unit
@@ -65,11 +58,17 @@ arcpy.conversion.ExportFeatures(source_taz, taz_fc, field_mapping=r'taz_id "taz_
 print('--recalculating area')
 logging.info("recalculating area")
 arcpy.management.CalculateGeometryAttributes(
-    taz_fc, "square_meters_taz AREA", '', "SQUARE_METERS"
+    taz_fc, geometry_property=[["square_meters_taz", "AREA_GEODESIC"]],  area_unit="SQUARE_METERS"
 )
 
 # copy table of taz_id, hh, and job to baseline gdb
 taz_table = pd.DataFrame.spatial.from_featureclass(source_taz)
+
+# check if specified se fields in yaml are present
+for f in [hh_source_field, job_source_field]:
+    if f not in taz_table.columns:
+        sys.exit(f"Error: Field {(f)} not present in TAZ SE table, please recheck the data")
+
 taz_table['hh'] = taz_table[hh_source_field]
 taz_table['job'] = taz_table[job_source_field]
 taz_table['taz_id'] = taz_table[tazid_source_field]

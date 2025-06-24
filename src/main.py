@@ -240,7 +240,8 @@ class MyApp:
 
     def open_config_file(self):
         """Opens the configuration file."""
-        filepath = '0_config.yaml'
+        print("Current directory:", os.getcwd())
+        filepath = 'src\\0_config.yaml'
         try:
             if os.name == 'nt':  # Windows
                 os.startfile(filepath)
