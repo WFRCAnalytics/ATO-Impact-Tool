@@ -29,8 +29,8 @@ if 'ato_tools' in sys.modules:
 
 base_path = os.path.abspath(".")
 baseline_gdb = "baseline.gdb"
-equity_taz = pd.read_csv('equity_taz.csv')
-equity_taz['efa'] = equity_taz[['poverty', 'minority', 'zero_car']].max(axis=1)
+# equity_taz = pd.read_csv('equity_taz.csv')
+# equity_taz['efa'] = equity_taz[['poverty', 'minority', 'zero_car']].max(axis=1)
 taz_table = pd.DataFrame(arcpy.da.TableToNumPyArray(r'baseline.gdb\taz_table', '*'))
 
 
@@ -146,12 +146,12 @@ for scenario in modal_scenarios:
     
     df = pd.DataFrame(arcpy.da.TableToNumPyArray(scores_table, '*'))
 
-    df = pd.merge(
-        df, 
-        equity_taz, 
-        on='taz_id', 
-        how="left"
-    )
+    # df = pd.merge(
+    #     df, 
+    #     equity_taz, 
+    #     on='taz_id', 
+    #     how="left"
+    # )
 
     df = pd.merge(
         df, 
@@ -168,30 +168,30 @@ for scenario in modal_scenarios:
         "hh_access": np.average(df['diff_hh'], weights=df['job']),
         "jobs_access": np.average(df['diff_jobs'], weights=df['hh']),
         "comp_access": np.average(df['diff_ato'], weights=(df['job'] + df['hh'])),
-        'pov_accessible_jobs': np.average(
-            df['diff_jobs'] * df['poverty'], 
-            weights=(df['hh'] * df['poverty'])
-        ),
-        'minority_accessible_jobs': np.average(
-            df['diff_jobs'] * df['minority'], 
-            weights=(df['hh'] * df['minority'])
-        ),
-        'zero_car_accessible_jobs': np.average(
-            df['diff_jobs'] * df['zero_car'], 
-            weights=(df['hh'] * df['zero_car'])
-        ),
-        'efa_accessible_jobs': np.average(
-            df['diff_jobs'] * df['efa'], 
-            weights=(df['hh'] * df['efa'])
-        )
+        # 'pov_accessible_jobs': np.average(
+        #     df['diff_jobs'] * df['poverty'], 
+        #     weights=(df['hh'] * df['poverty'])
+        # ),
+        # 'minority_accessible_jobs': np.average(
+        #     df['diff_jobs'] * df['minority'], 
+        #     weights=(df['hh'] * df['minority'])
+        # ),
+        # 'zero_car_accessible_jobs': np.average(
+        #     df['diff_jobs'] * df['zero_car'], 
+        #     weights=(df['hh'] * df['zero_car'])
+        # ),
+        # 'efa_accessible_jobs': np.average(
+        #     df['diff_jobs'] * df['efa'], 
+        #     weights=(df['hh'] * df['efa'])
+        # )
     }
     vals['hh_access'] = round(vals['hh_access'], 1)
     vals['jobs_access'] = round(vals['jobs_access'], 1)
     vals['comp_access'] = round(vals['comp_access'], 1)
-    vals['pov_accessible_jobs'] = round(vals['pov_accessible_jobs'], 1)
-    vals['minority_accessible_jobs'] = round(vals['minority_accessible_jobs'], 1)
-    vals['zero_car_accessible_jobs'] = round(vals['zero_car_accessible_jobs'], 1)
-    vals['efa_accessible_jobs'] = round(vals['efa_accessible_jobs'], 1)
+    # vals['pov_accessible_jobs'] = round(vals['pov_accessible_jobs'], 1)
+    # vals['minority_accessible_jobs'] = round(vals['minority_accessible_jobs'], 1)
+    # vals['zero_car_accessible_jobs'] = round(vals['zero_car_accessible_jobs'], 1)
+    # vals['efa_accessible_jobs'] = round(vals['efa_accessible_jobs'], 1)
     
     
     # scenario_scores = scenario_scores.append(vals, ignore_index=True)

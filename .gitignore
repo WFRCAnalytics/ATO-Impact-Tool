@@ -14,6 +14,8 @@ scenario/Cycling/
 scenario/Land_Use/
 logs/
 scenario/scenario_scores.csv
+scenario/scenario_template.gdb/
+baseline.gdb/
 ato.csv.xml
 
 shp/MM_NetworkDataset*

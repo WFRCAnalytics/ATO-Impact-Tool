@@ -174,7 +174,7 @@ def modify_network():
 
         # UPDATE LENGTHS FOR SELECTED FEATURES - SELECT ONLY AFFECTED FEATURES TO KEEP RUN TIME REASONABLE
         # this will likely throw some TypeErrors if the selectio includes non-roadway segments - ignore these!
-        if int(arcpy.management.GetCount(bpa)[0]) < 200:
+        if int(arcpy.management.GetCount(bpa)[0]) < 500:
             arcpy.management.CalculateField(
                 bpa, "PK_SPD", '!FF_SPD!', "PYTHON3", None, "DOUBLE"
             )
@@ -189,7 +189,7 @@ def modify_network():
             )
         else:
             print("Warning: operation will affect more than 200 features - did you select only the intended target?")
-            logging.warning(f"Error: operation will affect more than 220 features")
+            logging.warning(f"Error: operation will affect more than 200 features")
 
     ## Operational (line)
     elif combo_value == 'Operational': 

@@ -324,7 +324,7 @@ def score(mode, skim_matrix, taz_table, out_table, job_per_hh = None):
               inplace=True)
 
     # Weight outputs
-    df['survey_weight'] = df['total_time'].apply(lambda x: _survey_weight_new(x, mode)).round(3)
+    df['survey_weight'] = df['total_time'].apply(lambda x: _survey_weight(x)).round(3)
 
     df['accessible_jobs'] = round(df['survey_weight'] * df['job'])
     df['accessible_hh'] = round(df['survey_weight'] * df['hh'])
@@ -335,7 +335,7 @@ def score(mode, skim_matrix, taz_table, out_table, job_per_hh = None):
     df.drop(columns=df.columns.difference(keep_cols), inplace=True)
 
     # save table to input GDB
-    # df.spatial.to_table(out_table + '_full') # not needed
+    df.spatial.to_table(out_table + '_full') # not needed
 
     df_summary = df.groupby('origin_taz_id').agg(
         accessible_jobs=pd.NamedAgg(column='accessible_jobs', aggfunc=sum),
@@ -391,6 +391,8 @@ def diff(baseline, scenario, out_table = None):
         how="inner",
         suffixes=("_before", "_after")
     )
+
+    # df.to_csv('difftest.csv')
 
     df['diff_hh'] = df['accessible_hh_after'] - df['accessible_hh_before']
     df['diff_jobs'] = df['accessible_jobs_after'] - df['accessible_jobs_before']
