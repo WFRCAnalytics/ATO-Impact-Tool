@@ -60,9 +60,9 @@ Hierarchy - oddly, adding a heirarchy for routing seems to worsen performance. H
 '''
 
 # if baseline GDB exists, delete it
-if os.path.isdir(base_gdb):
+if arcpy.Exists(base_gdb):
     print('--deleting existing base gdb')
-    shutil.rmtree(base_gdb)
+    arcpy.Delete_management(base_gdb)
 
 arcpy.management.CreateFileGDB(base_path, "baseline")
 

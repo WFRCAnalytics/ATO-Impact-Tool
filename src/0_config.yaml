@@ -29,6 +29,9 @@ tazid_source_field: 'CO_TAZID'
 # Factors
 #-----------
 
+# travel time cutoff (minutes)
+max_travel_time: 60
+
 # transit operated speed in mph
 transit_operating_speeds:
   brt: 30

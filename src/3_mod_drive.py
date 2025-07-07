@@ -65,11 +65,12 @@ def  prepare_network():
     #-------------------------------------------------
 
     # if target gdb exists, delete it
-    if os.path.isdir(target_gdb):
-        shutil.rmtree(target_gdb)
+    if arcpy.Exists(target_gdb):
+        print('--deleting existing scenario geodatabase')
+        arcpy.Delete_management(target_gdb)
     
     # copy template
-    shutil.copytree(r"scenario\scenario_template.gdb", target_gdb)
+    arcpy.Copy_management(r"scenario\scenario_template.gdb", target_gdb)
     arcpy.env.workspace = target_gdb
 
     # Open the ArcGIS Pro project
@@ -123,7 +124,7 @@ def modify_network():
     # launch arcgis pro
     print('--launching ArcGIS Pro...')
     logging.info("launching ArcGIS Pro")
-    print('--Remember to save the edits, leave the new/edited features selected, and save the project')
+    print('--Remember to save the edits, leave the new/edited features selected, and save the project before closing the window')
     try:
         subprocess.run([arcgis_pro, aprx_path], check=True)
     except subprocess.CalledProcessError as e:
@@ -163,8 +164,8 @@ def modify_network():
             arcpy.management.CalculateField(bpa, "PedestrianTime", '!Length_Miles! / (3 / 60)', "PYTHON3", None, "DOUBLE")
             arcpy.management.CalculateField(bpa, "BikeTime", '!Length_Miles! / (11 / 60)', "PYTHON3", None, "DOUBLE")
         else:
-            print("Error: operation will affect more than 250 features. Did you select only the intended target?")
             logging.warning(f"Error: operation will affect more than 250 features")
+            raise Exception("Warning: operation will affect more than 250 features - did you select only the intended target?")
     
     ## Widening / Restripe (line)
     elif combo_value == 'Widening | Restripe': 
@@ -174,7 +175,7 @@ def modify_network():
 
         # UPDATE LENGTHS FOR SELECTED FEATURES - SELECT ONLY AFFECTED FEATURES TO KEEP RUN TIME REASONABLE
         # this will likely throw some TypeErrors if the selectio includes non-roadway segments - ignore these!
-        if int(arcpy.management.GetCount(bpa)[0]) < 500:
+        if int(arcpy.management.GetCount(bpa)[0]) < 200:
             arcpy.management.CalculateField(
                 bpa, "PK_SPD", '!FF_SPD!', "PYTHON3", None, "DOUBLE"
             )
@@ -188,8 +189,8 @@ def modify_network():
                 "PYTHON3", None, "DOUBLE"
             )
         else:
-            print("Warning: operation will affect more than 200 features - did you select only the intended target?")
             logging.warning(f"Error: operation will affect more than 200 features")
+            raise Exception("Warning: operation will affect more than 200 features - did you select only the intended target?")
 
     ## Operational (line)
     elif combo_value == 'Operational': 
@@ -202,8 +203,8 @@ def modify_network():
         if int(arcpy.management.GetCount(bpa)[0]) < 100:
             arcpy.management.CalculateField(bpa, "DriveTime", expression, "PYTHON3", None, "DOUBLE")
         else:
-            print("Warning: operation will affect more than 100 features - did you select only the intended target?")
             logging.warning(f"Error: operation will affect more than 100 features")
+            raise Exception("Warning: operation will affect more than 100 features - did you select only the intended target?")
 
 
     ## New interchange (point) 
@@ -236,8 +237,8 @@ def modify_network():
                 "PYTHON3", None, "DOUBLE"
             )
         else:
-            print("Warning: operation will affect more than 100 features - did you select only the intended target?")
             logging.warning(f"Error: operation will affect more than 100 features")
+            raise Exception("Warning: operation will affect more than 100 features - did you select only the intended target?")
     
 
     # clear the selection before creating the new network dataset

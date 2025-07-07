@@ -146,11 +146,13 @@ logging.info("baseline scores calculated")
 
 # Create "template" to use for mods
 # Note: if this fails, try starting ArcGIS Pro.
+
+if arcpy.Exists(r"scenario\scenario_template.gdb"):
+    print('--deleting existing scenario template gdb')
+    arcpy.Delete_management(r"scenario\scenario_template.gdb")
+
 print('--creating template geodatabase for mods')
 logging.info("creating template geodatabase for mods")
-if os.path.isdir(r"scenario\scenario_template.gdb"):
-    shutil.rmtree(r"scenario\scenario_template.gdb")
-
 arcpy.management.CreateFileGDB("scenario", "scenario_template")
 
 # Copy our baseline network dataset to our dataset for modification

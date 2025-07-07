@@ -36,51 +36,33 @@ def _survey_weight(t):
         return 0
  
 def _survey_weight_new(t, mode):
-    """WFRC's New Distance Decay Function"""
-    if mode == 'driving':
-        
-        if isinstance(t, numbers.Number):
-        
-            if t < 10:
-                return 1
-            elif t > 40:
-                return 0
-            else:
-                decay_range = 40 - 10
-                elapsed = t - 10
-                return  1 - (elapsed / decay_range)
-        else:
-            return 0
+    """WFRC's New Distance Decay Function.
     
-    elif mode == 'transit':
-    
-        if isinstance(t, numbers.Number):
-        
-            if t < 10:
-                return 1
-            elif t > 60:
-                return 0
-            else:
-                decay_range = 60 - 10
-                elapsed = t - 10
-                return  1 - (elapsed / decay_range)
-        else:
-            return 0
-        
-    elif mode == 'cycling':
-        
-        if isinstance(t, numbers.Number):
-        
-            if t < 10:
-                return 1
-            elif t > 30:
-                return 0
-            else:
-                decay_range = 30 - 10
-                elapsed = t - 10
-                return  1 - (elapsed / decay_range)
-        else:
-            return 0
+    Applies a linear distance decay weight based on mode and travel time t.
+    Returns 1 if t < lower bound, 0 if t > upper bound, and linearly decays in between.
+    """
+    mode = mode.lower()
+    decay_bounds = {
+        'driving': (10, 40),
+        'transit': (10, 60),
+        'cycling': (10, 30),
+    }
+
+    if mode not in decay_bounds:
+        msg = f"Mode: {mode} is invalid. Please check the scenario folder."
+        raise Exception(msg)
+
+    if pd.isna(t):
+        return 0
+
+    min_t, max_t = decay_bounds[mode]
+
+    if t < min_t:
+        return 1
+    elif t > max_t:
+        return 0
+    else:
+        return 1 - ((t - min_t) / (max_t - min_t))
         
 
 
@@ -153,7 +135,7 @@ def test(nd, mode = ['Cycling', 'Driving', 'Transit']):
         # Set properties
         route.timeUnits = arcpy.nax.TimeUnits.Minutes
         route.routeShapeType = arcpy.nax.RouteShapeType.TrueShapeWithMeasures
-        route.travelMode = test_mode
+        route.travelMode = test_mode.capitalize()
         
         # Load inputs and solve the analysis
         route.load(arcpy.nax.RouteInputDataType.Stops, input_stops)
@@ -220,7 +202,7 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
 
     odcm = arcpy.nax.OriginDestinationCostMatrix(nd_layer_name)
 
-    odcm.travelMode = mode
+    odcm.travelMode = mode.capitalize()
 
     # do not consider travel times beyond 60 minutes
     odcm.defaultImpedanceCutoff = 60 
@@ -324,7 +306,7 @@ def score(mode, skim_matrix, taz_table, out_table, job_per_hh = None):
               inplace=True)
 
     # Weight outputs
-    df['survey_weight'] = df['total_time'].apply(lambda x: _survey_weight(x)).round(3)
+    df['survey_weight'] = df['total_time'].apply(lambda x: _survey_weight_new(x, mode)).round(3)
 
     df['accessible_jobs'] = round(df['survey_weight'] * df['job'])
     df['accessible_hh'] = round(df['survey_weight'] * df['hh'])

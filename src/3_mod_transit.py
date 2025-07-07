@@ -69,11 +69,12 @@ def  prepare_network():
     #-------------------------------------------------
 
     # if target gdb exists, delete it
-    if os.path.isdir(target_gdb):
-        shutil.rmtree(target_gdb)
+    if arcpy.Exists(target_gdb):
+        print('--deleting existing scenario geodatabase')
+        arcpy.Delete_management(target_gdb)
     
     # copy template
-    shutil.copytree(r"scenario\scenario_template.gdb", target_gdb)
+    arcpy.Copy_management(r"scenario\scenario_template.gdb", target_gdb)
     arcpy.env.workspace = target_gdb
 
     # Open the ArcGIS Pro project
@@ -153,7 +154,7 @@ def modify_network():
     # launch arcgis pro
     print('--launching ArcGIS Pro...')
     logging.info("launching ArcGIS Pro")
-    print('--Remember to save the edits, leave the new/edited features selected, and save the project')
+    print('--Remember to save the edits, leave the new/edited features selected, and save the project before closing the window')
     try:
         subprocess.run([arcgis_pro, aprx_path], check=True)
     except subprocess.CalledProcessError as e:

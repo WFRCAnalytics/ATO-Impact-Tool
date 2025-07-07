@@ -76,11 +76,12 @@ def  prepare_network():
     #-------------------------------------------------
 
     # if target gdb exists, delete it
-    if os.path.isdir(target_gdb):
-        shutil.rmtree(target_gdb)
+    if arcpy.Exists(target_gdb):
+        print('--deleting existing scenario geodatabase')
+        arcpy.Delete_management(target_gdb)
         
     # copy template
-    shutil.copytree(r"scenario\scenario_template.gdb", target_gdb)
+    arcpy.Copy_management(r"scenario\scenario_template.gdb", target_gdb)
     arcpy.env.workspace = target_gdb
 
     # Open the ArcGIS Pro project
@@ -121,7 +122,7 @@ def modify_network():
     # launch arcgis pro  
     print('--launching ArcGIS Pro...')
     logging.info("launching ArcGIS Pro")
-    print('--Remember to save edits, leave new/edited features selected, and save the project')
+    print('--Remember to save edits, leave new/edited features selected, and save the project before closing the window')
     try:
         subprocess.run([arcgis_pro, aprx_path], check=True)
     except subprocess.CalledProcessError as e:
@@ -160,7 +161,7 @@ def modify_network():
     print(f'--(re)calculating attributes for {combo_value}')
     logging.info(f"(re)calculating attributes for {combo_value}")
 
-    if int(arcpy.management.GetCount(bpa)[0]) < 5:
+    if int(arcpy.management.GetCount(bpa)[0]) < 20:
         arcpy.management.CalculateField(bpa, "Name", "'" + entry_value + "'", "PYTHON3", None, "DOUBLE")
         arcpy.management.CalculateField(bpa, "Length_Miles", '!shape.length@miles!', "PYTHON3", None, "DOUBLE")
         arcpy.management.CalculateField(bpa, "PedestrianTime", '!Length_Miles! / (3 / 60)', "PYTHON3", None, "DOUBLE")
@@ -169,8 +170,8 @@ def modify_network():
         arcpy.management.CalculateField(bpa, "BikeNetwork", "'Y'", "PYTHON3", None, "DOUBLE")
         arcpy.management.CalculateField(bpa, "PedNetwork", "'Y'", "PYTHON3", None, "DOUBLE")
     else:
-        print("--Error: operation will affect more than 5 features. Did you select only the new bike facility(s)?")
-        logging.warning(f"Error: operation will affect more than 5 features")
+        logging.warning(f"Error: operation will affect more than 20 features")
+        raise Exception("Warning: operation will affect more than 20 features - did you select only the intended target?")
 
     ## All Features (New & Existing)
 

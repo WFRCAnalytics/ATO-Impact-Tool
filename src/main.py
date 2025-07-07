@@ -3,7 +3,7 @@
 # Created: 2025-03-14
 
 import tkinter as tk
-from tkinter import Menu, filedialog, messagebox
+from tkinter import Menu, filedialog, messagebox, font
 from PIL import Image, ImageTk
 import os
 import yaml
@@ -16,6 +16,7 @@ import webbrowser
 # setup log folder
 if not os.path.exists('logs'):
     os.makedirs('logs')
+    
 
 # Load YAML configuration
 def load_yaml(file_path):
@@ -181,8 +182,8 @@ class MyApp:
     def __init__(self, root):
         self.root = root
         self.root.title("ATO Impact Tool")
-        height = 650
-        width = 550
+        height = 740
+        width = 565
         self.root.geometry(f"{width}x{height}")
         
         # set the gui style
@@ -265,23 +266,23 @@ class MainMenu(tk.Frame):
         frame.config(width=550)  
         
         # Left frame with buttons
-        left_frame = ttk.Frame(frame)
-        left_frame.grid(row=0, column=0, sticky="n", padx=10, pady=10)
+        self.left_frame = ttk.Frame(frame)
+        self.left_frame.grid(row=0, column=0, sticky="n", padx=10, pady=10)
 
         # Create buttons
-        btn1 = ttk.Button(left_frame, text="1) Network Setup", width=20,  padding=(35, 15),
+        btn1 = ttk.Button(self.left_frame, text="1) Network Setup", width=20,  padding=(35, 15),
                          command=lambda: controller.show_page(NetworkSetupPage))
         btn1.grid(row=0, column=0, pady=5)
 
-        btn2 = ttk.Button(left_frame, text="2) TAZ Setup", width=20,  padding=(35, 15),
+        btn2 = ttk.Button(self.left_frame, text="2) TAZ Setup", width=20,  padding=(35, 15),
                          command=lambda: controller.show_page(TazSetupPage))
         btn2.grid(row=1, column=0, pady=5)
 
-        btn3 = ttk.Button(left_frame, text="3) Mod Projects", width=20, padding=(35, 15),
+        btn3 = ttk.Button(self.left_frame, text="3) Mod Projects", width=20, padding=(35, 15),
                          command=lambda: controller.show_page(ModProjectsPage))
         btn3.grid(row=2, column=0, pady=5)
 
-        btn4 = ttk.Button(left_frame, text="4) Score Projects", width=20,padding=(35, 15), 
+        btn4 = ttk.Button(self.left_frame, text="4) Score Projects", width=20,padding=(35, 15), 
                           command=lambda: controller.show_page(ScoreModsPage))
         btn4.grid(row=3, column=0, pady=5)
 
@@ -290,22 +291,40 @@ class MainMenu(tk.Frame):
         self.right_frame.grid(row=0, column=1, padx=20)
 
         # Load image
-        self.load_image("doc/ato_graphic.png")  # Change to actual image path
+        self.load_ato_image("doc/ato_graphic.png")  # Change to actual image path
+        self.load_image("doc/WFRC logo.png")  # Change to actual image path
+        
 
 
-    def load_image(self, image_path):
+    def load_ato_image(self, image_path):
         """Loads an image into the right frame."""
         try:
             image = Image.open(image_path)
-            image = image.resize((150, 300))  # Resize image
-            self.img = ImageTk.PhotoImage(image)
+            image = image.resize((280, 560))  # Resize image
+            self.right_img = ImageTk.PhotoImage(image)
 
-            # Clear previous image
-            for widget in self.right_frame.winfo_children():
-                widget.destroy()
+            # # Clear previous image
+            # for widget in self.right_frame.winfo_children():
+            #     widget.destroy()
 
-            label = tk.Label(self.right_frame, image=self.img, bd=2, relief="solid")
+            label = tk.Label(self.right_frame, image=self.right_img, bd=2, relief="solid")
             label.pack()
+        except Exception as e:
+            print(f"Error loading image: {e}")
+
+    def load_image(self, image_path):
+        """Loads an image into the left frame."""
+        try:
+            image = Image.open(image_path)
+            image = image.resize((190, 190))  # Resize image
+            self.left_img = ImageTk.PhotoImage(image)
+
+            # # Clear previous image
+            # for widget in self.left_frame.winfo_children():
+            #     widget.destroy()
+
+            label = tk.Label(self.left_frame, image=self.left_img, bd=2, relief="solid")
+            label.grid(row=4, column=0, pady=5)
         except Exception as e:
             print(f"Error loading image: {e}")
 
@@ -316,21 +335,27 @@ class NetworkSetupPage(BasePage):
         super().__init__(parent, controller)
 
         header_text = '1) Network Setup'
-        description_text = "This script prepares the Network Dataset datasets used for all ATO calculations.\n\nBefore running: Please ensure that the 'source network dataset' and 'source TDM' files have been downloaded and that their paths in the config file are correct.\n\nEstimated run time: ~3 minutes"
         script_name = 'network_setup'
 
         style = ttk.Style()
-        style.configure("Custom.TLabelframe.Label", font=("Arial", 12, "bold"), foreground="black")
+        style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
 
         # Create LabelFrame with reduced width settings
-        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(10, 10))
+        frame = ttk.LabelFrame(self, text=header_text,  style="Custom.TLabelframe", padding=(0, 0))
         frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
         frame.config(width=550)  
 
-        # Description label with wrapping to avoid excessive width
-        desc_label = ttk.Label(frame, text=description_text, wraplength=525)  # Prevents it from stretching too wide
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
+        # desc_frame
+        desc_frame = ttk.Frame(frame, padding=10)
+        desc_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
 
+        # Description label with wrapping to avoid excessive width
+        ttk.Label(desc_frame, text='Estimated run time: ~3 minutes', font=("Calibri", 11, "italic bold"), wraplength=525).grid(row=0, column=0, sticky="w")
+        ttk.Label(desc_frame, text='This script prepares the baseline and template Network Datasets feature classes.\n', font=("Calibri", 11, "italic"), wraplength=525).grid(row=1, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''1) IMPORTANT: Please ensure that the 'source_network_dataset' and 'source_tdm' files have been downloaded and that their paths in the config file are correct before running the script.\n''', font=("Calibri", 11), wraplength=525).grid(row=2, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''2) Run the script, then proceed to Script #2. This step need only be run once per analysis.''', font=("Calibri", 11), wraplength=525).grid(row=3, column=0, sticky="w")
+
+    
         # Navigation buttons with fixed width to prevent excessive stretching
         back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
         run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config[script_name]))
@@ -370,16 +395,23 @@ class TazSetupPage(BasePage):
         script_name = 'taz_setup'
         
         style = ttk.Style()
-        style.configure("Custom.TLabelframe.Label", font=("Arial", 12, "bold"), foreground="black")
+        style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
         
         # Create LabelFrame with reduced width settings
-        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(10, 10))
+        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(0, 0))
         frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
         frame.config(width=550)  
+        
+        # desc_frame
+        desc_frame = ttk.Frame(frame, padding=10)
+        desc_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
 
         # Description label with wrapping to avoid excessive width
-        desc_label = ttk.Label(frame, text=description_text, wraplength=525)  # Prevents it from stretching too wide
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
+        ttk.Label(desc_frame, text='Estimated run time: ~25 minutes', font=("Calibri", 11, "italic bold"), wraplength=525).grid(row=0, column=0, sticky="w")
+        ttk.Label(desc_frame, text='This script uses the included TAZ file with SE variables to calculate baseline ATO values for the region.\n', font=("Calibri", 11, "italic"), wraplength=525).grid(row=1, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''1) IMPORTANT: Please ensure that the 'source_taz' file has been downloaded and that its path in the config file is correct before running the script.\n''', font=("Calibri", 11), wraplength=525).grid(row=2, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''2) You may also select the forecast year of households and jobs in the config file.\n''', font=("Calibri", 11), wraplength=525).grid(row=3, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''2) Run the script, then proceed to Script #3. This step need only be run once per analysis.''', font=("Calibri", 11), wraplength=525).grid(row=4, column=0, sticky="w")
 
         # Navigation buttons with fixed width to prevent excessive stretching
         back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
@@ -417,32 +449,35 @@ class ScoreModsPage(BasePage):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
 
-        header_text = '4) Score Mods'
-        description_text = '''This script scores the configured scenarios.\n\nAny unscored scenarios will be scored.\n\nTo re-score a scenario, open its corresponding file \ngeodatabaseand delete its "scores" and "scores_summary" table. '''
+        header_text = '4) Score Projects'
         script_name = 'score'
         
         style = ttk.Style()
-        style.configure("Custom.TLabelframe.Label", font=("Arial", 12, "bold"), foreground="black")
+        style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
         
         # Create LabelFrame with reduced width settings
-        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(10, 10))
+        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(0, 0))
         frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
         frame.config(width=550)  
 
-        # Description label with wrapping to avoid excessive width
-        desc_label = ttk.Label(frame, text=description_text, wraplength=525)  # Prevents it from stretching too wide
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
+        # desc_frame
+        desc_frame = ttk.Frame(frame, padding=10)
+        desc_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
 
+        # Description label with wrapping to avoid excessive width
+        ttk.Label(desc_frame, text='Estimated run time: ~15-25 minutes per scenario', font=("Calibri", 11, "italic bold"), wraplength=525).grid(row=0, column=0, sticky="w")
+        ttk.Label(desc_frame, text='This script recalculates ATO for any configured scenarios, then calculates the difference in total ATO from the baseline. Any unscored scenarios will be scored. To re-score a scenario, open its corresponding geodatabase in the scenarios folder, and delete its "scores" and "scores_summary" table.', font=("Calibri", 11, "italic"), wraplength=525).grid(row=1, column=0, sticky="w")
+        
+        
         # Navigation buttons with fixed width to prevent excessive stretching
         back_button = ttk.Button(frame, text="🠜 Go Back", command=lambda: controller.show_page(MainMenu))
-        back_button.config(width=15)  # Set a fixed width
-        back_button.grid(row=3, column=0, padx=5, pady=5, sticky="w")  # No "sticky" to prevent full row stretch
-        
-        # run button
         run_button = ttk.Button(frame, text="Run Script 🠞", command=lambda: self.launch_script(config[script_name]))
-        run_button.config(width=20)  # Set a fixed width
+        
+        back_button.grid(row=3, column=0, padx=5, pady=5, sticky="w")  # No "sticky" to prevent full row stretch
         run_button.grid(row=1, column=0, padx=5, pady=5, sticky="w")
         
+        back_button.config(width=15)  # Set a fixed width
+        run_button.config(width=20)  # Set a fixed width
         
         # Output text box inside a small frame
         self.text_frame = tk.Frame(frame)
@@ -477,12 +512,17 @@ class ModProjectsPage(tk.Frame):
         style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
         
         # Create LabelFrame with reduced width settings
-        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe", padding=(10, 10))
+        frame = ttk.LabelFrame(self, text=header_text,  style="Custom.TLabelframe", padding=(0, 0))
         frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
         frame.config(width=550)  
-    
-        desc_label = ttk.Label(frame, text=description_text, wraplength=500)
-        desc_label.grid(row=0, column=0, columnspan=2, pady=10, sticky="w")
+
+        # desc_frame
+        desc_frame = ttk.Frame(frame, padding=10)
+        desc_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
+
+        # Description label with wrapping to avoid excessive width
+        ttk.Label(desc_frame, text='Estimated run time: ~5 minutes per project', font=("Calibri", 11, "italic bold"), wraplength=525).grid(row=0, column=0, sticky="w")
+        ttk.Label(desc_frame, text='Select which type of modification to add (Drive, Transit, Bike, Land Use). Once all of the desired mods are created, use script #4 in the Main Menu to score them all at once.', font=("Calibri", 11, "italic"), wraplength=525).grid(row=1, column=0, sticky="w")
 
         button_frame = ttk.LabelFrame(frame, text='Select a Mod Type:',  padding=(15, 15))
         button_frame.grid(row=1, column=0, pady=5, sticky="w")
@@ -514,21 +554,30 @@ class ModProjectsPage(tk.Frame):
 class ModDrivePage(BasePage):
     def __init__(self, parent, controller):
         super().__init__(parent, controller)
-        
-        
+ 
         header_text = '3A) Mod Drive'
-        description_text = '''Modify a copy of the baseline NetworkDataset with the candidate for improvement for road projects.\n\n1. Set the scenario name in the cell below before running the script.\n\n2. Run the script, ArcGIS Pro will launch.\n\n3. IMPORTANT: When you are done making your edits, leave the edited feature selected.\n\n4. Remember to save your edits and the project when you are finished.\n\n5. Please visit "Info" -> "Help" for more details.\n\nEstimated run time: ~5 minutes per modification'''
         script_name = 'mod_drive'
 
         style = ttk.Style()
         style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
         
-        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe",  padding=(10, 10))
-        frame.pack(padx=10, pady=10, fill="x")
-        frame.config(width=550) 
-        
-        desc_label = ttk.Label(frame, text=description_text, wraplength=525)
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky='w')
+        # Create LabelFrame with reduced width settings
+        frame = ttk.LabelFrame(self, text=header_text,  style="Custom.TLabelframe", padding=(0, 0))
+        frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
+        frame.config(width=550)  
+
+        # desc_frame
+        desc_frame = ttk.Frame(frame, padding=10)
+        desc_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
+
+        # Description label with wrapping to avoid excessive width
+        ttk.Label(desc_frame, text='Estimated run time: ~5 minutes per scenario', font=("Calibri", 11, "italic bold"), wraplength=525).grid(row=0, column=0, sticky="w")
+        ttk.Label(desc_frame, text='Modify a copy of the baseline NetworkDataset with a roads project improvement.\n', font=("Calibri", 11, "italic"), wraplength=525).grid(row=1, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''1) Input the scenario name and select the modification type below before running the script.\n''', font=("Calibri", 11), wraplength=525).grid(row=2, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''2) Run the script, ArcGIS Pro will launch. Add your edits to the network.\n''', font=("Calibri", 11), wraplength=525).grid(row=3, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''3) IMPORTANT: When you are done making your edits, leave the edited feature selected. Remember to save your edits and the project.\n''', font=("Calibri", 11), wraplength=525).grid(row=4, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''4) After you are finished, close down ArcGIS Pro, the ATO tool will resume processing.\n''', font=("Calibri", 11), wraplength=525).grid(row=5, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''Please visit "Info" -> "Help" for more details.''', font=("Calibri", 11, 'italic'), wraplength=525).grid(row=6, column=0, sticky="w")
 
         # User input frame
         input_frame = ttk.LabelFrame(frame, padding=(5, 5))
@@ -587,18 +636,34 @@ class ModTransitPage(BasePage):
         
         
         header_text = '3B) Mod Transit'
-        description_text = '''Modify a copy of the baseline NetworkDataset with the candidate for improvement for transit projects.\n\n1. Set the scenario name in the cell below before running the script.\n\n2. Run the script, ArcGIS Pro will launch.\n\n3. IMPORTANT: When you are done making your edits, leave the edited "TransitRoutes" feature(s) selected. "TransitStops" and "ConnectorNetwork" features do not need to be selected.\n\n4. Remember to save your edits and the project when you are finished.\n\n5. Please visit "Info" -> "Help" for more details.\n\nEstimated run time: ~5 minutes per modification'''
         script_name = 'mod_drive'
 
         style = ttk.Style()
         style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
+
+        # Create LabelFrame with reduced width settings
+        frame = ttk.LabelFrame(self, text=header_text,  style="Custom.TLabelframe", padding=(0, 0))
+        frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
+        frame.config(width=550)  
+
+        # desc_frame
+        desc_frame = ttk.Frame(frame, padding=10)
+        desc_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
+
+        # Description label with wrapping to avoid excessive width
+        ttk.Label(desc_frame, text='Estimated run time: ~5 minutes per scenario', font=("Calibri", 11, "italic bold"), wraplength=525).grid(row=0, column=0, sticky="w")
+
+        ttk.Label(desc_frame, text='Modify a copy of the baseline NetworkDataset with a transit project improvement.\n', font=("Calibri", 11, "italic"), wraplength=525).grid(row=1, column=0, sticky="w")
+
+        ttk.Label(desc_frame, text='''1) Input the scenario name and select the modification type below before running the script.\n''', font=("Calibri", 11), wraplength=525).grid(row=2, column=0, sticky="w")
+
+        ttk.Label(desc_frame, text='''2) Run the script, ArcGIS Pro will launch.\n''', font=("Calibri", 11), wraplength=525).grid(row=3, column=0, sticky="w")
+
+        ttk.Label(desc_frame, text='''3) IMPORTANT: When you are done making your edits, leave the edited "TransitRoutes" feature(s) selected.\n''', font=("Calibri", 11), wraplength=525).grid(row=4, column=0, sticky="w")
+
+        ttk.Label(desc_frame, text='''4. Remember to save your edits and the project when you are finished. After you are finished, close down ArcGIS Pro, the ATO tool will resume processing.\n''', font=("Calibri", 11), wraplength=525).grid(row=5, column=0, sticky="w")
         
-        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe",  padding=(10, 10))
-        frame.pack(padx=10, pady=10, fill="x")
-        frame.config(width=550) 
-        
-        desc_label = ttk.Label(frame, text=description_text, wraplength=525)
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky='w')
+        ttk.Label(desc_frame, text='''Please visit "Info" -> "Help" for more details.''', font=("Calibri", 11, 'italic'), wraplength=525).grid(row=6, column=0, sticky="w")
 
         # User input frame
         input_frame = ttk.LabelFrame(frame, padding=(5, 5))
@@ -657,18 +722,29 @@ class ModBikePage(BasePage):
         
         
         header_text = '3C) Mod Bike'
-        description_text = '''Modify a copy of the baseline NetworkDataset with the candidate for improvement for bicycle projects.\n\n1. Set the scenario name and improvement type in the cell below before running the script.\n\n2. Run the script, ArcGIS Pro will launch.\n\n3. IMPORTANT: When you are done making your edits, leave the edited feature selected.\n\n4. Remember to save your edits and the project when you are finished.\n\n5. Please visit "Info" -> "Help" for more details.\n\nEstimated run time: ~5 minutes per modification'''
+        description_text = '''Modify a copy of the baseline NetworkDataset with the candidate for improvement for bicycle projects (Estimated run time: ~5 minutes per modification)\n\n1. Set the scenario name and improvement type in the cell below before running the script.\n\n2. Run the script, ArcGIS Pro will launch.\n\n3. IMPORTANT: When you are done making your edits, leave the edited feature selected.\n\n4. Remember to save your edits and the project when you are finished. After you are finished, close down ArcGIS Pro, the ATO tool will resume processing.\n\nPlease visit "Info" -> "Help" for more details.'''
         script_name = 'mod_bike'
         
         style = ttk.Style()
         style.configure("Custom.TLabelframe.Label", font=("Calibri", 12, "bold"), foreground="black")
         
-        frame = ttk.LabelFrame(self, text=header_text, style="Custom.TLabelframe",  padding=(10, 10))
-        frame.pack(padx=10, pady=10, fill="x")
-        frame.config(width=550) 
-        
-        desc_label = ttk.Label(frame, text=description_text, wraplength=525)
-        desc_label.grid(row=0, column=0, columnspan=2, pady=5, sticky='w')
+        # Create LabelFrame with reduced width settings
+        frame = ttk.LabelFrame(self, text=header_text,  style="Custom.TLabelframe", padding=(0, 0))
+        frame.pack(padx=10, pady=10, fill="x")  # Prevent full expansion
+        frame.config(width=550)  
+
+        # desc_frame
+        desc_frame = ttk.Frame(frame, padding=10)
+        desc_frame.grid(row=0, column=0, columnspan=2, pady=5, sticky="w")
+
+        # Description label with wrapping to avoid excessive width
+        ttk.Label(desc_frame, text='Estimated run time: ~5 minutes per scenario', font=("Calibri", 11, "italic bold"), wraplength=525).grid(row=0, column=0, sticky="w")
+        ttk.Label(desc_frame, text='Modify a copy of the baseline NetworkDataset with a bicycle infrastructure improvement.\n', font=("Calibri", 11, "italic"), wraplength=525).grid(row=1, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''1) Input the scenario name and select the modification type below before running the script.\n''', font=("Calibri", 11), wraplength=525).grid(row=2, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''2) Run the script, ArcGIS Pro will launch. Add your edits to the network.\n''', font=("Calibri", 11), wraplength=525).grid(row=3, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''3) IMPORTANT: When you are done making your edits, leave the edited feature selected. Remember to save your edits and the project.\n''', font=("Calibri", 11), wraplength=525).grid(row=4, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''4) Once finished, close down ArcGIS Pro, the ATO tool will resume processing.\n''', font=("Calibri", 11), wraplength=525).grid(row=5, column=0, sticky="w")
+        ttk.Label(desc_frame, text='''Please visit "Info" -> "Help" for more details.''', font=("Calibri", 11, 'italic'), wraplength=525).grid(row=6, column=0, sticky="w")
 
         # User input frame
         input_frame = ttk.LabelFrame(frame, padding=(5, 5))
