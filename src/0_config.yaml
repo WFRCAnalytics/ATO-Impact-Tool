@@ -21,8 +21,8 @@ mod_landuse: 'src\\3_mod_landuse.py'
 score: 'src\\4_score.py'
 
 # Data
-hh_source_field: 'HH_2019'
-job_source_field: 'JOB_2019'
+hh_source_field: 'HH_2050'
+job_source_field: 'JOB_2050'
 tazid_source_field: 'CO_TAZID'
 
 #-----------

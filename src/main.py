@@ -72,7 +72,7 @@ class BasePage(tk.Frame):
 
         def run():
             try:
-                pythonw_path = config.get('pythonw', sys.executable)  # Use default Python if not specified
+                pythonw_path = config.get('python', sys.executable)  # Use default Python if not specified
                 process = subprocess.Popen(
                     [pythonw_path, '-u', script_path], 
                     stdout=subprocess.PIPE, 
@@ -100,8 +100,12 @@ class BasePage(tk.Frame):
                 process.stdout.close()
                 process.stderr.close()
                 process.wait()
-
-                messagebox.showinfo("Success", "Script finished successfully!")
+                
+                exit_code = process.returncode
+                if exit_code == 0:
+                    messagebox.showinfo("Success", "Script finished successfully!")
+                else:
+                    messagebox.showerror("Script Error", f"Script exited with code {exit_code}.")
 
             except Exception as e:
                 error_msg = f"Error: {e}\n"
@@ -124,7 +128,7 @@ class BasePage(tk.Frame):
 
         def run():
             try:
-                pythonw_path = config.get('pythonw', sys.executable)  # Use default Python if not specified
+                pythonw_path = config.get('python', sys.executable)  # Use default Python if not specified
                 
                 entry_value  = myEntry.get()
                 combo_value  = myCombobox.get()
@@ -161,7 +165,11 @@ class BasePage(tk.Frame):
                 process.stderr.close()
                 process.wait()
 
-                messagebox.showinfo("Success", "Script finished successfully!")
+                exit_code = process.returncode
+                if exit_code == 0:
+                    messagebox.showinfo("Success", "Script finished successfully!")
+                else:
+                    messagebox.showerror("Script Error", f"Script exited with code {exit_code}.")
 
             except Exception as e:
                 error_msg = f"Error: {e}\n"
