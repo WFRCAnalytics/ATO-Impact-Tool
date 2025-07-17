@@ -84,7 +84,7 @@ def  prepare_network():
     map_obj = aprx.listMaps(map_name)[0]
 
     # clear layers
-    layers_to_keep = ["World Topographic Map", "World Hillshade"]
+    layers_to_keep = ["World Topographic Map", "World Hillshade", "World Imagery"]
     for lyr in reversed(map_obj.listLayers()):
         if lyr.name not in layers_to_keep:
             map_obj.removeLayer(lyr)
@@ -225,6 +225,10 @@ def modify_network():
         print("Warning: operation will affect " + 
             arcpy.management.GetCount(transit_routes_layer)[0] + 
             " features - did you select only the intended target?")
+        
+    # Update pedestrian time for null features
+    arcpy.management.SelectLayerByAttribute(connector_network_layer, "NEW_SELECTION", "PedestrianTime IS NULL")
+    arcpy.CalculateField_management(connector_network_layer, field="PedestrianTime", expression="((!Shape_Length! * 0.000621371) / 3.1) * 60", expression_type="PYTHON_9.3")
     
 
     # clear the selection before creating the new network dataset

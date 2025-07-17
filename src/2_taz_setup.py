@@ -78,10 +78,12 @@ taz_table.spatial.to_table(os.path.join(base_gdb, "taz_table"))
 # calculate TAZ centroids
 # (the arcpy "Feature to Point" tool makes this easier but requires an advanced license)
 logging.info("calculating xy coordinates")
-arcpy.management.CalculateGeometryAttributes(os.path.join(base_gdb, "taz"), "x CENTROID_X;y CENTROID_Y",  '', '', crs, "SAME_AS_INPUT")
-arcpy.management.XYTableToPoint(os.path.join(base_gdb, "taz"), os.path.join(base_gdb, "taz_centroids"), 'x', 'y', None, crs)
+# arcpy.management.CalculateGeometryAttributes(os.path.join(base_gdb, "taz"), "x CENTROID_X;y CENTROID_Y",  '', '', crs, "SAME_AS_INPUT")
+# arcpy.management.XYTableToPoint(os.path.join(base_gdb, "taz"), os.path.join(base_gdb, "taz_centroids"), 'x', 'y', None, crs)
+taz_centroids = arcpy.management.FeatureToPoint(os.path.join(base_gdb, "taz"), os.path.join(base_gdb, "taz_centroids"), "INSIDE")
 taz_centroids = arcpy.management.MakeFeatureLayer(os.path.join(base_gdb, "taz_centroids"), "taz_centroids")
-arcpy.management.DeleteField(os.path.join(base_gdb, "taz"), ['x','y'])
+
+# arcpy.management.DeleteField(os.path.join(base_gdb, "taz"), ['x','y'])
 
 '''Note, snapping TAZ centroids to the network can introduce some unintended variation in ATO between TAZs if the centroid snaps to a location only accessible via a circuitous route, to a roadway outside of the TAZ boundaries, etc. Also note, centroids are snapped to auto network. Additional snapping happens within the network solver configuration for transit and bicycle routes. None of this should materially affect the estimated change in ATO for a given project.'''
 

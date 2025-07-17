@@ -91,7 +91,7 @@ def  prepare_network():
     map_obj = aprx.listMaps(map_name)[0]
 
     # clear layers
-    layers_to_keep = ["World Topographic Map", "World Hillshade"]
+    layers_to_keep = ["World Topographic Map", "World Hillshade", "World Imagery"]
     for lyr in reversed(map_obj.listLayers()):
         if lyr.name not in layers_to_keep:
             map_obj.removeLayer(lyr)
