@@ -5,6 +5,10 @@ import time
 import errno
 from arcgis.features import GeoAccessor, GeoSeriesAccessor
 import math
+import numbers
+
+arcpy.env.overwriteOutput = True
+arcpy.env.parallelProcessingFactor = "90%"
 
 test_centroids = os.path.join(os.path.abspath("."), r"baseline.gdb\taz_centroids_sample")
 
@@ -30,6 +34,36 @@ def _survey_weight(t):
         return 1/(1 + math.exp(0.1092 * t - 1.5604))
     else:
         return 0
+ 
+def _survey_weight_new(t, mode):
+    """WFRC's New Distance Decay Function.
+    
+    Applies a linear distance decay weight based on mode and travel time t.
+    Returns 1 if t < lower bound, 0 if t > upper bound, and linearly decays in between.
+    """
+    mode = mode.lower()
+    decay_bounds = {
+        'driving': (10, 40),
+        'transit': (10, 60),
+        'cycling': (10, 30),
+    }
+
+    if mode not in decay_bounds:
+        msg = f"Mode: {mode} is invalid. Please check the scenario folder."
+        raise Exception(msg)
+
+    if pd.isna(t):
+        return 0
+
+    min_t, max_t = decay_bounds[mode]
+
+    if t < min_t:
+        return 1
+    elif t > max_t:
+        return 0
+    else:
+        return 1 - ((t - min_t) / (max_t - min_t))
+        
 
 
 def build(nd, template = None, validate = True):
@@ -48,7 +82,7 @@ def build(nd, template = None, validate = True):
         template = os.path.join(os.path.abspath("."), "network_template.xml")
 
     target_gdb = nd[:-len(r'\NetworkDataset\NetworkDataset_ND')]
-    print("Target GDB: {}".format(target_gdb))
+    print(f"--Target GDB: {target_gdb}")
     
     # create network dataset from template
     arcpy.nax.CreateNetworkDatasetFromTemplate(
@@ -63,9 +97,9 @@ def build(nd, template = None, validate = True):
     end = time.time()
 
     duration = end-start
-    print("Network Build Time (seconds): {}".format(duration))
+    print(f"--Network Build Time (seconds): {duration}")
     if duration < 10:
-        print("Warning: abnormally short build duration. Verify network validity.")
+        print("--Warning: abnormally short build duration. Verify network validity.")
     
     if validate == True:
         test(nd)
@@ -101,7 +135,7 @@ def test(nd, mode = ['Cycling', 'Driving', 'Transit']):
         # Set properties
         route.timeUnits = arcpy.nax.TimeUnits.Minutes
         route.routeShapeType = arcpy.nax.RouteShapeType.TrueShapeWithMeasures
-        route.travelMode = test_mode
+        route.travelMode = test_mode.capitalize()
         
         # Load inputs and solve the analysis
         route.load(arcpy.nax.RouteInputDataType.Stops, input_stops)
@@ -111,18 +145,18 @@ def test(nd, mode = ['Cycling', 'Driving', 'Transit']):
         if result.solveSucceeded:
             result.export(arcpy.nax.RouteOutputDataType.Routes, output_routes)
         else:
-            print("Solved failed")
+            print("--Solved failed")
             print(result.solverMessages(arcpy.nax.MessageSeverity.All))
 
         # test if travel time between 1 and 60 minutes
         result = pd.DataFrame.spatial.from_featureclass(output_routes)
         travel_time = result.at[0,'Total_Minutes']
         if travel_time < 1 or travel_time > 60:
-            msg = "Invalid travel time {0} for {1}. See README".format(travel_time, mode)
+            msg = f"--Invalid travel time {travel_time} for {mode}. See README"
             print(msg)
             raise Exception(msg)
         else:
-            print("Network test passes for {}.".format(test_mode))
+            print(f"--Network test passes for {test_mode}.")
             
     arcpy.env.addOutputsToMap = True
 
@@ -149,7 +183,6 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
 
     # location of the file geodatabase with the WFRC TAZ shapes and TAZ centroids    
     tmp_env = arcpy.env.workspace
-
     target_gdb = nd[:-len(r'\NetworkDataset\NetworkDataset_ND')]
 
     arcpy.env.workspace = target_gdb
@@ -159,8 +192,8 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
 
     nd_layer_name = "wfrc_mm_nd"
 
-    print("Solving skim using {0} network for {1} .".format(mode, nd))
-    arcpy.AddMessage("Creating network from {}".format(nd))
+    print(f"--Solving skim using {mode} network for {nd} .")
+    arcpy.AddMessage(f"Creating network from {nd}")
 
     if arcpy.Exists(nd):
         arcpy.nax.MakeNetworkDatasetLayer(nd, nd_layer_name)
@@ -169,7 +202,7 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
 
     odcm = arcpy.nax.OriginDestinationCostMatrix(nd_layer_name)
 
-    odcm.travelMode = mode
+    odcm.travelMode = mode.capitalize()
 
     # do not consider travel times beyond 60 minutes
     odcm.defaultImpedanceCutoff = 60 
@@ -203,29 +236,29 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
     if result.solveSucceeded:
         result.export(arcpy.nax.OriginDestinationCostMatrixOutputDataType.Lines, r"memory\output_lines")
     else:
-        print("Solve failed")
+        print("--Solve failed")
         print(result.solverMessages(arcpy.nax.MessageSeverity.All))
 
     od = pd.DataFrame.spatial.from_featureclass(r"memory\output_lines")
 
     if od['Total_Time'].mean() < 1:
-        print("Network validation: FAIL")
-        print("Travel Times: ", od['total_time'].head())
+        print("--Network validation: FAIL")
+        print("--Travel Times: ", od['total_time'].head())
         raise ValueError('Network Travel Times are Zero - Invalid Network')
 
     # save table to input GDB
     od.spatial.to_table(out_table)
 
     # save table to input GDB
-    print("Skim matrix written to " + out_table)
+    print("--Skim matrix written to " + out_table)
 
     end = time.time()
     duration = round((end-start)/60, 2)
 
-    print("Skim Matrix Solve Time (mins): {}".format(duration))
-    arcpy.AddMessage("Skim Matrix Solve Time: {}".format(duration))
-    if duration < 2.5:
-        print("Error with {}. Run ato.build('{}')".format(nd))
+    print(f"--Skim Matrix Solve Time (mins): {duration}")
+    arcpy.AddMessage(f"Skim Matrix Solve Time: {duration}")
+    if duration < 2:
+        print(f"--Error with {nd}. Run ato.build('{nd}')")
         raise Exception('Skim matrix solve time too short. Consider rebuilding network.')
 
 
@@ -235,7 +268,7 @@ def skim(nd, mode = 'Driving', centroids = None, out_table = 'skim_matrix'):
     return True
 
 
-def score(skim_matrix, taz_table, out_table, job_per_hh = None):
+def score(mode, skim_matrix, taz_table, out_table, job_per_hh = None):
     """Given a skim matrix, solve and score TAZ ATO
     
     Keyword arguments:
@@ -250,8 +283,8 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     od = pd.DataFrame(arr)
 
     if od['total_time'].mean() < 1:
-        print("Network validation: FAIL")
-        print("Travel Times: ", od['total_time'].head())
+        print("--Network validation: FAIL")
+        print("--Travel Times: ", od['total_time'].head())
         raise ValueError('Network Travel Times are Zero - Invalid Network')
 
     # Join the TAZ data
@@ -264,7 +297,7 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
 
     if job_per_hh == None:
         job_per_hh = round(taz['job'].sum() / taz['hh'].sum(), 5)
-        print("Regional Jobs per HH Ratio: {}".format(job_per_hh))
+        print(f"--Regional Jobs per HH Ratio: {job_per_hh}")
 
     df = pd.merge(od, taz, left_on="destination_name", right_on="taz_id")
 
@@ -273,7 +306,7 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
               inplace=True)
 
     # Weight outputs
-    df['survey_weight'] = df['total_time'].apply(lambda x: _survey_weight(x)).round(3)
+    df['survey_weight'] = df['total_time'].apply(lambda x: _survey_weight_new(x, mode)).round(3)
 
     df['accessible_jobs'] = round(df['survey_weight'] * df['job'])
     df['accessible_hh'] = round(df['survey_weight'] * df['hh'])
@@ -284,7 +317,7 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     df.drop(columns=df.columns.difference(keep_cols), inplace=True)
 
     # save table to input GDB
-    # df.spatial.to_table(out_table + '_full') # not needed
+    df.spatial.to_table(out_table + '_full') # not needed
 
     df_summary = df.groupby('origin_taz_id').agg(
         accessible_jobs=pd.NamedAgg(column='accessible_jobs', aggfunc=sum),
@@ -308,10 +341,10 @@ def score(skim_matrix, taz_table, out_table, job_per_hh = None):
     taz_ato.spatial.to_table(out_table)
 
     # save table to input GDB
-    print("Scores written to {}".format(out_table))
+    print(f"--Scores written to {out_table}")
 
     ato_score = taz_ato['ato'].sum()
-    print("Network ATO: {}".format(ato_score))
+    print(f"--Network ATO: {ato_score}")
     
     return ato_score
 
@@ -341,6 +374,8 @@ def diff(baseline, scenario, out_table = None):
         suffixes=("_before", "_after")
     )
 
+    # df.to_csv('difftest.csv')
+
     df['diff_hh'] = df['accessible_hh_after'] - df['accessible_hh_before']
     df['diff_jobs'] = df['accessible_jobs_after'] - df['accessible_jobs_before']
     df['diff_ato'] = df['ato_after'] - df['ato_before']
@@ -350,6 +385,6 @@ def diff(baseline, scenario, out_table = None):
 
     score = df['diff_ato'].sum()
 
-    print('Scenario score: {0}'.format(score))
+    print(f'--Scenario score: {score}')
 
     return score
