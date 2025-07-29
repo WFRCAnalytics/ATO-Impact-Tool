@@ -251,8 +251,8 @@ for scenario in land_use_scenarios:
 
 
 
-land_use_scenario_scores.to_csv(r'scenario\land_use_scenario_scores.csv')
-scenario_scores.to_csv(r'scenario\scenario_scores.csv')
+land_use_scenario_scores.to_csv(r'scenario\land_use_scenario_scores.csv', index=False)
+scenario_scores.to_csv(r'scenario\scenario_scores.csv', index=False)
 
 
 
