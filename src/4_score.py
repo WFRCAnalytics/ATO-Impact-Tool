@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 from arcgis.features import GeoAccessor, GeoSeriesAccessor
 from ato_tools import ato
+import yaml
 
 arcpy.env.overwriteOutput = True
 arcpy.env.parallelProcessingFactor = "90%"
@@ -22,15 +23,24 @@ src = os.path.join(os.path.abspath("."), 'src')
 if src not in sys.path:
     sys.path.append(src)
     
-
 if 'ato_tools' in sys.modules:
     import importlib
     importlib.reload(ato)
 
+def load_yaml(file_path):
+    with open(file_path, 'r') as file:
+        return yaml.safe_load(file)
+
+# source files and fields
+config = load_yaml('src/0_config.yaml')
+source_taz = config['community_focus_taz']
+
 base_path = os.path.abspath(".")
 baseline_gdb = "baseline.gdb"
-# equity_taz = pd.read_csv('equity_taz.csv')
-# equity_taz['efa'] = equity_taz[['poverty', 'minority', 'zero_car']].max(axis=1)
+# cfa_taz = pd.read_csv('cfa_taz.csv')
+cfa_taz = pd.read_csv(config['community_focus_taz'])
+# cfa_taz['cfa'] = cfa_taz[['poverty', 'minority', 'zero_car']].max(axis=1)
+cfa_taz['cfa'] = cfa_taz[['poverty']].max(axis=1)
 taz_table = pd.DataFrame(arcpy.da.TableToNumPyArray(r'baseline.gdb\taz_table', '*'))
 
 
@@ -118,11 +128,12 @@ Scores for individual projects can be extracted from the `scores_summary` table 
 
 ### Tabulate Mode Scenario Scores
 print('--tabulating scores')
-scenario_scores = pd.DataFrame(columns = 
-    ['name', 'mode', 'hh_access', 'jobs_access', 'comp_access',
-     'pov_accessible_jobs', 'minority_accessible_jobs', 
-     'zero_car_accessible_jobs', 'efa_accessible_jobs']
-)
+# scenario_scores = pd.DataFrame(columns = 
+#     ['name', 'mode', 'hh_access', 'jobs_access', 'comp_access',
+#      'pov_accessible_jobs', 'minority_accessible_jobs', 
+#      'zero_car_accessible_jobs', 'cfa_accessible_jobs']
+# )
+scenario_scores = pd.DataFrame(columns = ['name', 'mode', 'hh_access', 'jobs_access', 'comp_access',  'cfa_accessible_jobs'])
 
 for scenario in modal_scenarios:
     
@@ -146,12 +157,12 @@ for scenario in modal_scenarios:
     
     df = pd.DataFrame(arcpy.da.TableToNumPyArray(scores_table, '*'))
 
-    # df = pd.merge(
-    #     df, 
-    #     equity_taz, 
-    #     on='taz_id', 
-    #     how="left"
-    # )
+    df = pd.merge(
+        df, 
+        cfa_taz, 
+        on='taz_id', 
+        how="left"
+    )
 
     df = pd.merge(
         df, 
@@ -161,7 +172,7 @@ for scenario in modal_scenarios:
     )
     
     df.fillna(0, inplace=True)
-    
+    df.to_csv("df.csv")
     vals = {
         "name": scenario['name'],
         'mode': mode,
@@ -180,10 +191,10 @@ for scenario in modal_scenarios:
         #     df['diff_jobs'] * df['zero_car'], 
         #     weights=(df['hh'] * df['zero_car'])
         # ),
-        # 'efa_accessible_jobs': np.average(
-        #     df['diff_jobs'] * df['efa'], 
-        #     weights=(df['hh'] * df['efa'])
-        # )
+        'cfa_accessible_jobs': np.average(
+            df['diff_jobs'] * df['cfa'], 
+            weights=(df['hh'] * df['cfa'])
+        )
     }
     vals['hh_access'] = round(vals['hh_access'], 1)
     vals['jobs_access'] = round(vals['jobs_access'], 1)
@@ -191,7 +202,7 @@ for scenario in modal_scenarios:
     # vals['pov_accessible_jobs'] = round(vals['pov_accessible_jobs'], 1)
     # vals['minority_accessible_jobs'] = round(vals['minority_accessible_jobs'], 1)
     # vals['zero_car_accessible_jobs'] = round(vals['zero_car_accessible_jobs'], 1)
-    # vals['efa_accessible_jobs'] = round(vals['efa_accessible_jobs'], 1)
+    vals['cfa_accessible_jobs'] = round(vals['cfa_accessible_jobs'], 1)
     
     
     # scenario_scores = scenario_scores.append(vals, ignore_index=True)
