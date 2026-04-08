@@ -192,7 +192,7 @@ class BasePage(tk.Frame):
 class MyApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("ATO Impact Tool")
+        self.root.title("WFRC ATO Impact Tool")
         height = 740
         width = 710
         self.root.geometry(f"{width}x{height}")

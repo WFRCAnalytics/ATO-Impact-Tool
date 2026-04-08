@@ -6,6 +6,7 @@
 source_network_dataset: "shp\\MM_NetworkDataset_06112025.gdb\\NetworkDataset"
 source_tdm: "shp\\Master_Segs_withFactors_20230801_BY2023SegSummary\\Master_Segs_withFactors_20230801_BY2023SegSummary.shp"
 source_taz: "shp\\TAZ.gdb\\ATO"
+community_focus_taz: "shp\\Community_Focus_Areas\\community_focus_taz_rtp27.csv"
 
 # Software paths
 arcgis_pro: "C:\\Program Files\\ArcGIS\\Pro\\bin\\ArcGISPro.exe"
