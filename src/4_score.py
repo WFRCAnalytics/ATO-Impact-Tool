@@ -172,7 +172,7 @@ for scenario in modal_scenarios:
     )
     
     df.fillna(0, inplace=True)
-    df.to_csv("df.csv")
+    
     vals = {
         "name": scenario['name'],
         'mode': mode,
