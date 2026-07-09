@@ -3,7 +3,7 @@
 ######################################################
 
 # Data inputs
-source_network_dataset: "shp\\MM_NetworkDataset_06112025.gdb\\NetworkDataset"
+source_network_dataset: "shp\\MM_NetworkDataset_06042026.gdb\\NetworkDataset"
 source_tdm: "shp\\Master_Segs_withFactors_20230801_BY2023SegSummary\\Master_Segs_withFactors_20230801_BY2023SegSummary.shp"
 source_taz: "shp\\TAZ.gdb\\ATO"
 community_focus_taz: "shp\\Community_Focus_Areas\\community_focus_taz_rtp27.csv"
@@ -22,8 +22,8 @@ mod_landuse: 'src\\3_mod_landuse.py'
 score: 'src\\4_score.py'
 
 # Data
-hh_source_field: 'HH_2050'
-job_source_field: 'JOB_2050'
+hh_source_field: 'HH_2035'
+job_source_field: 'JOB_2035'
 tazid_source_field: 'CO_TAZID'
 
 #-----------
@@ -52,3 +52,9 @@ bike_length_multipliers:
   protected_bike_lane: 0.2
   bike_blvd: 0.1
   shared_use_path: 0.05
+
+#-------------
+# Other
+#-------------
+
+max_features: 100

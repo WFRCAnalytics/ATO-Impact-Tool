@@ -30,7 +30,8 @@ def load_yaml(file_path):
         return yaml.safe_load(file)
     
 config = load_yaml('src/0_config.yaml')
-arcgis_pro = config['arcgis_pro']   
+arcgis_pro = config['arcgis_pro']
+max_features = config['max_features']  
 
 base_path = os.path.abspath(".")
 aprx_path = os.path.realpath("ato.aprx")
@@ -80,7 +81,7 @@ def  prepare_network():
     map_obj = aprx.listMaps(map_name)[0]
 
     # clear layers
-    layers_to_keep = ["World Topographic Map", "World Hillshade", "World Imagery"]
+    layers_to_keep = ["Hybrid Reference Layer" ,"World Topographic Map", "World Hillshade", "World Imagery"]
     for lyr in reversed(map_obj.listLayers()):
         if lyr.name not in layers_to_keep:
             map_obj.removeLayer(lyr)
@@ -158,14 +159,14 @@ def modify_network():
 
         # UPDATE LENGTHS FOR SELECTED FEATURES - SELECT ONLY AFFECTED FEATURES TO KEEP RUN TIME REASONABLE
         # this will likely throw some TypeErrors if the selectio includes non-roadway segments - ignore these!
-        if int(arcpy.management.GetCount(bpa)[0]) < 250:
+        if int(arcpy.management.GetCount(bpa)[0]) < max_features:
             arcpy.management.CalculateField(bpa, "Length_Miles", '!shape.length@miles!', "PYTHON3", None, "DOUBLE")
             arcpy.management.CalculateField(bpa, "DriveTime", '!Length_Miles! / (!Speed! / 60)', "PYTHON3", None, "DOUBLE")
             arcpy.management.CalculateField(bpa, "PedestrianTime", '!Length_Miles! / (3 / 60)', "PYTHON3", None, "DOUBLE")
             arcpy.management.CalculateField(bpa, "BikeTime", '!Length_Miles! / (11 / 60)', "PYTHON3", None, "DOUBLE")
         else:
-            logging.warning(f"Error: operation will affect more than 250 features")
-            raise Exception("Warning: operation will affect more than 250 features - did you select only the intended target?")
+            logging.warning(f"Error: operation will affect more than {max_features} features")
+            raise Exception(f"Warning: operation will affect more than {max_features} features - did you select only the intended target?")
     
     ## Widening / Restripe (line)
     elif combo_value == 'Widening | Restripe': 

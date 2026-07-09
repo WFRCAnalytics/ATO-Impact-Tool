@@ -34,7 +34,8 @@ def load_yaml(file_path):
         return yaml.safe_load(file)
     
 config = load_yaml('src/0_config.yaml')
-arcgis_pro = config['arcgis_pro']   
+arcgis_pro = config['arcgis_pro']
+max_features = config['max_features']
 
 base_path = os.path.abspath(".")
 aprx_path = os.path.realpath("ato.aprx")
@@ -84,7 +85,7 @@ def  prepare_network():
     map_obj = aprx.listMaps(map_name)[0]
 
     # clear layers
-    layers_to_keep = ["World Topographic Map", "World Hillshade", "World Imagery"]
+    layers_to_keep = ["Hybrid Reference Layer" ,"World Topographic Map", "World Hillshade", "World Imagery"]
     for lyr in reversed(map_obj.listLayers()):
         if lyr.name not in layers_to_keep:
             map_obj.removeLayer(lyr)
@@ -212,7 +213,7 @@ def modify_network():
 
     expression = '!Length_Miles! * 60 / ' + str(operating_speeds[combo_value])
 
-    if 0 < int(arcpy.management.GetCount(transit_routes_layer)[0]) < 100:
+    if 0 < int(arcpy.management.GetCount(transit_routes_layer)[0]) < max_features:
         arcpy.management.CalculateField(
             transit_routes_layer,
             "Length_Miles", '!Shape_Length! * 0.000621371', "PYTHON3", 
@@ -222,9 +223,7 @@ def modify_network():
             transit_routes_layer, "TransitTime", expression, "PYTHON3", None, "DOUBLE"
         )
     else:
-        print("Warning: operation will affect " + 
-            arcpy.management.GetCount(transit_routes_layer)[0] + 
-            " features - did you select only the intended target?")
+        print(f"Warning: operation will affect more than {max_features} features - did you select only the intended target?")
         
     # Update pedestrian time for null features
     arcpy.management.SelectLayerByAttribute(connector_network_layer, "NEW_SELECTION", "PedestrianTime IS NULL")
